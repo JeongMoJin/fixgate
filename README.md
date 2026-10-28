@@ -80,7 +80,7 @@ FIXGATE_LLM=openai OPENAI_API_KEY=... node src/cli.ts fix examples/shop-api
 FIXGATE_LLM=claude-code node src/cli.ts scan <Java 서비스> --plan
 ```
 
-- `openai`: Responses API + Structured Outputs. 기본 모델 `gpt-6.1-terra`, 추론 강도 `low`. 호출마다 토큰 사용량으로 비용을 계산해 `.fixgate-cache/llm/spend.json`에 쌓고, `FIXGATE_LLM_BUDGET_USD`(기본 $0.6)에 닿으면 더 부르지 않는다. 평가·비교 실험·예제 보고서 전체에 든 비용은 $0.21이었다.
+- `openai`: Responses API + Structured Outputs. 기본 모델 `gpt-6.1-terra`, 추론 강도 `low`. 호출마다 토큰 사용량으로 비용을 계산해 `.fixgate-cache/llm/spend.json`에 쌓고, `FIXGATE_LLM_BUDGET_USD`(기본 $0.6)에 닿으면 더 부르지 않는다. 평가·비교 실험·예제 보고서 전체에 든 비용은 $0.22였다.
 - `claude-code`: Claude Code CLI의 headless 모드(`claude -p`)로, 로그인한 구독으로 동작한다. 도구는 끄고 빈 작업 폴더에서 부른다.
 - 답은 `.fixgate-cache/llm/`에 남아 같은 질문은 다시 호출하지 않고, 한 번 실행의 호출 수는 `FIXGATE_LLM_MAX_CALLS`(기본 10)로 막는다. LLM을 끄면 결정적 단계와 보고서는 그대로 동작한다.
 

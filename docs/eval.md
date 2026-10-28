@@ -54,4 +54,4 @@ FIXGATE_LLM=openai OPENAI_API_KEY=... node scripts/eval.ts
 FIXGATE_LLM=claude-code node scripts/eval.ts
 ```
 
-OpenAI 호출은 토큰 사용량으로 비용을 계산해 `.fixgate-cache/llm/spend.json`에 쌓고, `FIXGATE_LLM_BUDGET_USD`(기본 $0.6)에 닿으면 멈춘다. 이번 평가·비교 실험·예제 보고서 전체에 쓴 비용은 $0.21이다.
+OpenAI 호출은 토큰 사용량으로 비용을 계산해 `.fixgate-cache/llm/spend.json`에 쌓고, `FIXGATE_LLM_BUDGET_USD`(기본 $0.6)에 닿으면 멈춘다. 이번 평가·비교 실험·예제 보고서 전체에 쓴 비용은 $0.22다.
