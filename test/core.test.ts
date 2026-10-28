@@ -5,7 +5,7 @@ import { notesBetween } from "../src/changelog.ts";
 import { compareVersions, fixedVersion, type OsvVuln } from "../src/osv.ts";
 import { citedIds } from "../src/diagnose.ts";
 import { rankTargets, retryOrder, type FixAction } from "../src/remediate.ts";
-import { gradleLockfileToCycloneDx, lockfileToCycloneDx, parseCycloneDx, spdxToCycloneDx } from "../src/sbom.ts";
+import { gradleLockfileToCycloneDx, lockfileToCycloneDx, parseCycloneDx, sbomQuality, spdxToCycloneDx } from "../src/sbom.ts";
 import { importsOn, scanUsage } from "../src/usage.ts";
 import { applyVersion } from "../src/verify.ts";
 
@@ -104,6 +104,11 @@ test("SPDX packages with a purl and a concrete version become components", () =>
     }),
   );
   assert.deepEqual(components.map((c) => [c.name, c.direct]), [["a", true]]);
+});
+
+test("sbomQuality reports what part of an SBOM can be matched", () => {
+  const q = sbomQuality({ bomFormat: "CycloneDX", components: [{ name: "a", version: "1.0.0", purl: "pkg:npm/a@1.0.0" }, { name: "b" }], dependencies: [] });
+  assert.deepEqual(q, { components: 2, matchable: 1, hasGraph: false, withSupplier: 0, hasTimestamp: false });
 });
 
 test("citedIds pulls fact ids out of evidence sentences", () => {

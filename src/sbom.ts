@@ -12,14 +12,41 @@ interface CdxComponent {
   scope?: string;
   properties?: { name: string; value: string }[];
   externalReferences?: { type: string; url: string }[];
+  supplier?: { name?: string };
+  publisher?: string;
 }
 
 export interface CycloneDx {
   bomFormat: string;
   specVersion?: string;
-  metadata?: { component?: CdxComponent };
+  metadata?: { component?: CdxComponent; timestamp?: string };
   components?: CdxComponent[];
   dependencies?: { ref: string; dependsOn?: string[] }[];
+}
+
+export interface SbomQuality {
+  components: number;
+  /** Components that can be matched against advisories at all. */
+  matchable: number;
+  hasGraph: boolean;
+  withSupplier: number;
+  hasTimestamp: boolean;
+}
+
+/**
+ * How much of an SBOM can be trusted for triage, along the lines of the NTIA
+ * minimum elements. A supplier's SBOM without versions or a dependency graph
+ * leaves part of the judgment open, and the report says so.
+ */
+export function sbomQuality(bom: CycloneDx): SbomQuality {
+  const components = bom.components ?? [];
+  return {
+    components: components.length,
+    matchable: components.filter((c) => c.purl && c.version && /^\d/.test(c.version)).length,
+    hasGraph: (bom.dependencies ?? []).some((d) => (d.dependsOn ?? []).length > 0),
+    withSupplier: components.filter((c) => c.supplier?.name || c.publisher).length,
+    hasTimestamp: Boolean(bom.metadata?.timestamp),
+  };
 }
 
 /**

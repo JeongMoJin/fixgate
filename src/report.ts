@@ -109,7 +109,9 @@ function summaryLines(run: RunResult): string[] {
   const { before, after, attempts } = run;
   const b = countTiers(before.findings);
   const vulnerable = new Set(before.findings.map((f) => f.component.ref)).size;
+  const q = before.quality;
   const lines = [
+    `SBOM 품질: 구성요소 ${q.components}개 중 매칭 가능(PURL·버전) ${q.matchable}개, 의존 관계 ${q.hasGraph ? "있음" : "없음 — 직접·간접 구분 불가"}, 공급자 표기 ${q.withSupplier}개${q.matchable < q.components * 0.9 ? " — 매칭할 수 없는 구성요소가 많아 판단 일부가 비어 있음" : ""}`,
     `구성요소 ${before.components.length}개 중 ${vulnerable}개에서 경보 ${before.findings.length}건`,
     `즉시 ${b.now} · 이번 주 ${b.week} · 계획 ${b.plan} · 운영 영향 없음 ${b.none}`,
     `처리 단위로 묶으면 패키지 ${packageRows(before.findings.filter((f) => f.tier !== "none")).length}개`,

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { getVuln, queryVulnIds, toAdvisory } from "./osv.ts";
 import { decide } from "./prioritize.ts";
-import { loadSbom, parseCycloneDx, type CycloneDx } from "./sbom.ts";
+import { loadSbom, parseCycloneDx, sbomQuality, type CycloneDx, type SbomQuality } from "./sbom.ts";
 import { loadEpss, loadKev } from "./threat.ts";
 import type { Component, Finding, ServiceContext } from "./types.ts";
 import { scanUsage } from "./usage.ts";
@@ -12,6 +12,7 @@ export interface Triage {
   components: Component[];
   findings: Finding[];
   sources: { osv: string; epssDate: string | null; kevVersion: string };
+  quality: SbomQuality;
 }
 
 export function loadContext(dir: string): ServiceContext {
@@ -29,7 +30,8 @@ export function loadContext(dir: string): ServiceContext {
  */
 export async function triage(dir: string, opts: { sbom?: CycloneDx } = {}): Promise<Triage> {
   const context = loadContext(dir);
-  const components = parseCycloneDx(opts.sbom ?? loadSbom(dir));
+  const bom = opts.sbom ?? loadSbom(dir);
+  const components = parseCycloneDx(bom);
   const byPurl = new Map(components.map((c) => [c.purl, c]));
 
   const ids = await queryVulnIds(components.map((c) => c.purl));
@@ -56,7 +58,7 @@ export async function triage(dir: string, opts: { sbom?: CycloneDx } = {}): Prom
   });
 
   const epssDate = [...epss.values()][0]?.date ?? null;
-  return { context, components, findings, sources: { osv: "api.osv.dev", epssDate, kevVersion: kev.version } };
+  return { context, components, findings, sources: { osv: "api.osv.dev", epssDate, kevVersion: kev.version }, quality: sbomQuality(bom) };
 }
 
 async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
