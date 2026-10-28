@@ -11,6 +11,7 @@ interface CdxComponent {
   purl?: string;
   scope?: string;
   properties?: { name: string; value: string }[];
+  externalReferences?: { type: string; url: string }[];
 }
 
 export interface CycloneDx {
@@ -92,6 +93,7 @@ export function lockfileToCycloneDx(lock: { packages?: Record<string, LockEntry>
         version: e.version,
         purl: `pkg:npm/${name.replace("@", "%40")}@${e.version}`,
         properties: shipped ? [] : [{ name: "cdx:npm:package:development", value: "true" }],
+        externalReferences: e.resolved ? [{ type: "distribution", url: e.resolved }] : [],
       });
     }
     const deps = { ...e.dependencies, ...e.optionalDependencies, ...(ref.startsWith("workspace:") ? e.devDependencies : {}) };
@@ -151,8 +153,17 @@ export function parseCycloneDx(bom: CycloneDx): Component[] {
         dev: isDevOnly(c),
         direct: direct.has(ref),
         path: paths.get(ref) ?? [ref],
+        fromRegistry: isFromRegistry(c),
       };
     });
+}
+
+/** Without a distribution reference the source is unknown, and the registry is the common case. */
+function isFromRegistry(c: CdxComponent): boolean {
+  const refs = c.externalReferences ?? [];
+  if (refs.some((r) => r.type === "vcs")) return false;
+  const dist = refs.find((r) => r.type === "distribution")?.url;
+  return !dist || /^https?:\/\/[^/]*registry/.test(dist);
 }
 
 function isDevOnly(c: CdxComponent): boolean {

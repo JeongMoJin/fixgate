@@ -6,7 +6,7 @@ export const TIER_LABEL: Record<Tier, string> = {
   now: "즉시",
   week: "이번 주",
   plan: "계획",
-  none: "영향 없음",
+  none: "운영 영향 없음",
 };
 
 export type Severity = "CRITICAL" | "HIGH" | "MODERATE" | "LOW" | "UNKNOWN";
@@ -23,6 +23,8 @@ export interface Component {
   direct: boolean;
   /** Shortest chain of refs from the service root to this component. */
   path: string[];
+  /** Fetched from the public package registry, as opposed to git, a file or a link. */
+  fromRegistry: boolean;
 }
 
 export interface Advisory {

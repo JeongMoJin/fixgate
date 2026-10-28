@@ -42,6 +42,22 @@ test("lockfileToCycloneDx matches npm's own SBOM for the example service", () =>
   assert.ok(by("ms").some((c) => c.version === "2.1.3" && !c.dev), "a version shipped anywhere counts as shipped");
 });
 
+test("lockfileToCycloneDx marks packages installed from git as outside the registry", () => {
+  const components = parseCycloneDx(
+    lockfileToCycloneDx({
+      packages: {
+        "": { name: "app", dependencies: { a: "^1.0.0", internal: "github:org/internal#abc" } },
+        "node_modules/a": { version: "1.0.0", resolved: "https://registry.npmjs.org/a/-/a-1.0.0.tgz" },
+        "node_modules/internal": { version: "1.0.0", resolved: "git+ssh://git@github.com/org/internal.git#abc" },
+      },
+    }),
+  );
+  const by = Object.fromEntries(components.map((c) => [c.name, c]));
+  assert.equal(by.a.fromRegistry, true);
+  assert.equal(by.internal.fromRegistry, false);
+  assert.equal(by.internal.direct, true);
+});
+
 test("fixedVersion finds the fix for the range that contains the version", () => {
   const vuln: OsvVuln = {
     id: "GHSA-1",

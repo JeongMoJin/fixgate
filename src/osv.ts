@@ -7,6 +7,7 @@ const API = "https://api.osv.dev/v1";
 export interface OsvVuln {
   id: string;
   aliases?: string[];
+  published?: string;
   summary?: string;
   details?: string;
   severity?: { type: string; score: string }[];

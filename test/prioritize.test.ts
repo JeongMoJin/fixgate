@@ -4,7 +4,7 @@ import { decide, maxTier, type Facts } from "../src/prioritize.ts";
 
 function facts(over: Partial<Facts> & { severity?: Facts["advisory"]["severity"]; fixed?: string | null } = {}): Facts {
   return {
-    component: { ref: "x@1.0.0", name: "x", version: "1.0.0", purl: "pkg:npm/x@1.0.0", ecosystem: "npm", dev: false, direct: true, path: ["x@1.0.0"], ...over.component },
+    component: { ref: "x@1.0.0", name: "x", version: "1.0.0", purl: "pkg:npm/x@1.0.0", ecosystem: "npm", dev: false, direct: true, path: ["x@1.0.0"], fromRegistry: true, ...over.component },
     advisory: { id: "GHSA-1", cve: "CVE-2026-1", aliases: [], summary: "", severity: over.severity ?? "MODERATE", fixed: over.fixed === undefined ? "1.0.1" : over.fixed, url: "" },
     epss: over.epss ?? null,
     kev: over.kev ?? null,
@@ -17,6 +17,22 @@ test("dev-only dependencies are not affected in production", () => {
   const r = decide(facts({ component: { dev: true } as Facts["component"], severity: "CRITICAL" }));
   assert.equal(r.tier, "none");
   assert.match(r.reasons[0].source, /development/);
+});
+
+test("a malicious package is urgent even as a dev-only dependency", () => {
+  const f = facts({ component: { dev: true } as Facts["component"], severity: "UNKNOWN" });
+  f.advisory = { ...f.advisory, id: "MAL-2026-1234", cve: null };
+  const r = decide(f);
+  assert.equal(r.tier, "now");
+  assert.match(r.reasons[0].text, /악성 패키지/);
+});
+
+test("a git-sourced package whose name is taken by malware is a dependency-confusion risk", () => {
+  const f = facts({ component: { fromRegistry: false } as Facts["component"] });
+  f.advisory = { ...f.advisory, id: "MAL-2022-2637", cve: null };
+  const r = decide(f);
+  assert.equal(r.tier, "week");
+  assert.match(r.reasons[0].text, /의존성 혼동/);
 });
 
 test("a KEV listing means fix now, whatever the severity", () => {

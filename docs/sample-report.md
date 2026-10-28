@@ -1,6 +1,6 @@
 # FixGate 보고서 · shop-api
 
-생성 2026-10-28 03:35 · 데이터: OSV(api.osv.dev), EPSS 2026-10-27, CISA KEV 2026.10.27
+생성 2026-10-28 03:58 · 데이터: OSV(api.osv.dev), EPSS 2026-10-27, CISA KEV 2026.10.27
 서비스: 노출 인터넷 · 중요도 high · 개인정보 처리 · 담당 커머스 개발팀
 
 ## 요약
@@ -25,11 +25,11 @@
 | 계획 | cookie@0.4.0 (간접) | 1 | 심각도 LOW, 악용 확률 0.74% [OSV GHSA-pxg6-pf52-xh8x, EPSS 2026-10-27] |
 | 계획 | send@0.17.1 (간접) | 1 | 심각도 LOW, 악용 확률 0.54% [OSV GHSA-m6fv-jmcg-4jfg, EPSS 2026-10-27] |
 | 계획 | serve-static@1.14.1 (간접) | 1 | 심각도 LOW, 악용 확률 0.63% [OSV GHSA-cm22-4g7w-348p, EPSS 2026-10-27] |
-| 영향 없음 | js-yaml@4.1.0 (간접) | 5 | 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development] |
-| 영향 없음 | nanoid@3.1.23 (간접) | 5 | 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development] |
-| 영향 없음 | minimatch@3.0.4 (간접) | 4 | 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development] |
-| 영향 없음 | serialize-javascript@6.0.0 (간접) | 4 | 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development] |
-| 영향 없음 | diff@5.0.0 (간접) | 1 | 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development] |
+| 운영 영향 없음 | js-yaml@4.1.0 (간접) | 5 | 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development] |
+| 운영 영향 없음 | nanoid@3.1.23 (간접) | 5 | 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development] |
+| 운영 영향 없음 | minimatch@3.0.4 (간접) | 4 | 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development] |
+| 운영 영향 없음 | serialize-javascript@6.0.0 (간접) | 4 | 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development] |
+| 운영 영향 없음 | diff@5.0.0 (간접) | 1 | 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development] |
 
 ## 검증된 조치
 
@@ -67,10 +67,10 @@
 ```
     at next (<작업 사본>\node_modules\express\lib\router\index.js:275:10)
     at <작업 사본>\node_modules\body-parser\lib\read.js:130:5
-✖ login issues a token that /me accepts (28.4256ms)
-✔ me rejects a forged token (3.089ms)
-✔ stock is read from the inventory service (6.362ms)
-✔ receipt renders order totals (2.0443ms)
+✖ login issues a token that /me accepts (27.3175ms)
+✔ me rejects a forged token (2.9427ms)
+✔ stock is read from the inventory service (6.1631ms)
+✔ receipt renders order totals (2.2782ms)
 ℹ tests 4
 ℹ suites 0
 ℹ pass 3
@@ -78,10 +78,10 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 226.8666
+ℹ duration_ms 227.7754
 ✖ failing tests:
 test at test\app.test.js:35:1
-✖ login issues a token that /me accepts (28.4256ms)
+✖ login issues a token that /me accepts (27.3175ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   500 !== 200
       at TestContext.<anonymous> (<작업 사본>\test\app.test.js:41:10)
@@ -97,7 +97,7 @@ test at test\app.test.js:35:1
   }
 ```
 
-  **원인 설명 (LLM sonnet, 확신 medium)**: 9.0.0부터 RSA 키는 2048비트 이상이어야 한다 [N6]. 테스트는 1024비트 키를 만들어 쓴다 [T7][T9]. 그래서 jwt.sign이 키를 거부한 것으로 보이고, /login이 500을 반환했다 [C2][L9]. 다만 실제 오류 메시지는 로그에 없어서 확정은 아니다.
+  **원인 설명 (LLM sonnet, 확신 medium)**: 테스트가 1024비트 RSA 키를 쓰는데[T9], 9.0.0은 RSA 키가 2048비트 이상이어야 한다[N6]. 그래서 RS256 서명 단계[C2]가 거부되어 /login이 500을 낸 것으로 보인다[L9]. 다만 로그에 예외 메시지가 없어서 직접 확인한 것은 아니고, 추정이다. 테스트 주석에 따르면 운영 키도 1024비트라서[T7] 운영에서도 같은 문제가 생길 수 있다.
 
   - 근거 [N6] github.com/auth0/node-jsonwebtoken/CHANGELOG.md: - RSA key size must be 2048 bits or greater. ([ecdf6cc6073ea13a7e71df5fad043550f08d0fa6]https://github.com/auth0/node-jsonwebtoken/commit/ecdf6cc6073ea13a7e71df5fad043550f08d0fa6)
   - 근거 [T7] test/app.test.js:7 // The production key pair is 1024-bit RSA, issued before the 2048-bit policy.
@@ -105,9 +105,9 @@ test at test\app.test.js:35:1
   - 근거 [C2] src/app.js:14 const token = jwt.sign({ sub: userId }, privateKey, { algorithm: "RS256", expiresIn: "1h" });
   - 근거 [L9]   500 !== 200
 
-  1. **추천** 운영 키를 2048비트 이상으로 교체하고 테스트 키도 맞춘다 (위험 낮음) — 새 RSA 2048비트 이상 키 쌍을 발급하고 테스트의 modulusLength를 2048로 올린다. 그 뒤 9.0.0으로 올려 취약점 3건 조치를 유지한다. 운영 키는 1024비트라 [T7] 교체 일정과 기존 토큰 처리 계획이 필요하다. 이 부분은 주어진 사실에 없어 불확실하다.
-  2. 테스트 키만 2048비트로 바꾸고 운영 키 교체는 따로 진행한다 (위험 보통) — 테스트는 통과시킬 수 있다. 하지만 운영 키가 1024비트면 [T7] 배포 후 서명이 실패할 수 있다. 운영 키 교체를 먼저 끝내거나 같은 배포에 넣어야 한다.
-  3. 8.5.1을 유지하거나 키 크기 검사를 우회한다 (위험 높음) — 취약점 3건이 그대로 남는다. 인터넷에 노출되고 개인정보를 처리하는 서비스라 보안을 약하게 만드는 선택이다. 우회 옵션이 있는지도 주어진 사실에 없다.
+  1. **추천** 2048비트 이상 RSA 키를 새로 발급해 9.0.0 적용 (위험 보통) — 운영과 테스트 키를 2048비트 이상으로 교체한 뒤 9.0.0을 다시 올린다. 취약점 3건 조치를 유지할 수 있다. 키를 바꾸면 기존에 발급된 토큰은 검증되지 않을 수 있으니 전환 계획(새 키 배포 시점, 재로그인 안내)이 필요하다. 이 점은 주어진 사실만으로는 영향 범위를 알 수 없다.
+  2. 테스트 키만 2048비트로 바꾸고 운영 키 교체 일정은 따로 잡기 (위험 보통) — 테스트는 통과시킬 수 있다. 하지만 운영 키가 1024비트인 채로 9.0.0을 배포하면 로그인이 실패할 수 있다[T7]. 운영 키 교체가 끝난 뒤에만 배포해야 한다.
+  3. 8.5.1 유지(업그레이드 보류) (위험 높음) — 테스트는 그대로 통과하지만 취약점 3건이 남는다. shop-api는 인터넷에 노출되고 개인정보를 처리하므로 위험이 크다. 임시로만 쓰고 기한을 정해야 한다.
 
 → 사람 검토 필요. 위 기록과 함께 담당 개발팀에 넘깁니다.
 
@@ -390,45 +390,45 @@ test at test\app.test.js:35:1
   - 개인정보를 처리하는 서비스 [fixgate.json personalData]
   - 간접 의존성: express@4.17.1 → serve-static@1.14.1 [SBOM dependencies]
 
-### 영향 없음 (19)
+### 운영 영향 없음 (19)
 
 - **diff@5.0.0** · [GHSA-73rr-hh4g-fpgx](https://osv.dev/vulnerability/GHSA-73rr-hh4g-fpgx) CVE-2026-24001 · LOW · 고친 버전 5.2.2 — jsdiff has a Denial of Service vulnerability in parsePatch and applyPatch
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **js-yaml@4.1.0** · [GHSA-2883-xcg3-v3hh](https://osv.dev/vulnerability/GHSA-2883-xcg3-v3hh) CVE-2026-84375 · HIGH · 고친 버전 4.3.2 — js-yaml: maxTotalMergeKeys does not limit CPU use for empty merge sources
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **js-yaml@4.1.0** · [GHSA-52cp-r559-cp3m](https://osv.dev/vulnerability/GHSA-52cp-r559-cp3m) CVE-2026-59869 · HIGH · 고친 버전 4.3.0 — js-yaml: YAML merge-key chains can force quadratic CPU consumption
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **js-yaml@4.1.0** · [GHSA-5p4m-2wfm-xmqj](https://osv.dev/vulnerability/GHSA-5p4m-2wfm-xmqj) · HIGH · 고친 버전 4.3.1 — JS-YAML: Quadratic CPU consumption in !!omap resolution (3.x and 4.x) — CVE-2026-59870 fix not backported
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **js-yaml@4.1.0** · [GHSA-h67p-54hq-rp68](https://osv.dev/vulnerability/GHSA-h67p-54hq-rp68) CVE-2026-53550 · MODERATE · 고친 버전 4.2.0 — JS-YAML: Quadratic-complexity DoS in merge key handling via repeated aliases
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **js-yaml@4.1.0** · [GHSA-mh29-5h37-fv8m](https://osv.dev/vulnerability/GHSA-mh29-5h37-fv8m) CVE-2025-64718 · MODERATE · 고친 버전 4.1.1 — js-yaml has prototype pollution in merge (<<)
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **minimatch@3.0.4** · [GHSA-23c5-xmqv-rm74](https://osv.dev/vulnerability/GHSA-23c5-xmqv-rm74) CVE-2026-27904 · HIGH · 고친 버전 3.1.4 — minimatch ReDoS: nested *() extglobs generate catastrophically backtracking regular expressions
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **minimatch@3.0.4** · [GHSA-3ppc-4f35-3m26](https://osv.dev/vulnerability/GHSA-3ppc-4f35-3m26) CVE-2026-26996 · HIGH · 고친 버전 3.1.3 — minimatch has a ReDoS via repeated wildcards with non-matching literal in pattern
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **minimatch@3.0.4** · [GHSA-7r86-cg39-jmmj](https://osv.dev/vulnerability/GHSA-7r86-cg39-jmmj) CVE-2026-27903 · HIGH · 고친 버전 3.1.3 — minimatch has ReDoS: matchOne() combinatorial backtracking via multiple non-adjacent GLOBSTAR segments
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **minimatch@3.0.4** · [GHSA-f8q6-p94x-37v3](https://osv.dev/vulnerability/GHSA-f8q6-p94x-37v3) CVE-2022-3517 · HIGH · 고친 버전 3.0.5 — minimatch ReDoS vulnerability
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **nanoid@3.1.23** · [GHSA-28wg-ghj8-5hjv](https://osv.dev/vulnerability/GHSA-28wg-ghj8-5hjv) CVE-2026-67214 · HIGH · 고친 버전 3.3.16 — nanoid: non-secure generators can loop indefinitely with negative size
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **nanoid@3.1.23** · [GHSA-2v37-7h3g-55p8](https://osv.dev/vulnerability/GHSA-2v37-7h3g-55p8) CVE-2026-67213 · HIGH · 고친 버전 3.3.18 — nanoid: custom generators can loop indefinitely when size is zero
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **nanoid@3.1.23** · [GHSA-mwcw-c2x4-8c55](https://osv.dev/vulnerability/GHSA-mwcw-c2x4-8c55) CVE-2024-55565 · MODERATE · 고친 버전 3.3.8 — Predictable results in nanoid generation when given non-integer values
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **nanoid@3.1.23** · [GHSA-qrpm-p2h7-hrv2](https://osv.dev/vulnerability/GHSA-qrpm-p2h7-hrv2) CVE-2021-23566 · MODERATE · 고친 버전 3.1.31 — Exposure of Sensitive Information to an Unauthorized Actor in nanoid
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **nanoid@3.1.23** · [GHSA-xwg4-73v4-xw9w](https://osv.dev/vulnerability/GHSA-xwg4-73v4-xw9w) CVE-2026-73086 · HIGH · 고친 버전 3.3.12 — nanoid: Integer Overflow or Wraparound
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **serialize-javascript@6.0.0** · [GHSA-5c6j-r48x-rmvq](https://osv.dev/vulnerability/GHSA-5c6j-r48x-rmvq) · HIGH · 고친 버전 7.0.3 — Serialize JavaScript is Vulnerable to RCE via RegExp.flags and Date.prototype.toISOString()
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **serialize-javascript@6.0.0** · [GHSA-76p7-773f-r4q5](https://osv.dev/vulnerability/GHSA-76p7-773f-r4q5) CVE-2024-11831 · MODERATE · 고친 버전 6.0.2 — Cross-site Scripting (XSS) in serialize-javascript
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **serialize-javascript@6.0.0** · [GHSA-m5mm-p8h7-m29v](https://osv.dev/vulnerability/GHSA-m5mm-p8h7-m29v) CVE-2026-115754 · LOW · 고친 버전 7.1.3 — Serialize JavaScript: Cross-site scripting (XSS) via unescaped </script at the end of a serialized function body
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 - **serialize-javascript@6.0.0** · [GHSA-qj8w-gfj5-8c6v](https://osv.dev/vulnerability/GHSA-qj8w-gfj5-8c6v) CVE-2026-34043 · MODERATE · 고친 버전 7.0.5 — Serialize JavaScript has CPU Exhaustion Denial of Service via crafted array-like objects
-  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 [SBOM cdx:npm:package:development]
+  - 개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리) [SBOM cdx:npm:package:development]
 
-조치 후 다시 스캔한 결과: 22건 (즉시 0 · 이번 주 1 · 계획 2 · 영향 없음 19)
+조치 후 다시 스캔한 결과: 22건 (즉시 0 · 이번 주 1 · 계획 2 · 운영 영향 없음 19)

@@ -19,7 +19,7 @@ const RISK: Record<string, string> = { low: "위험 낮음", medium: "위험 보
 function diagnosisLines(d: Diagnosis): string[] {
   return [
     "",
-    `  **원인 설명 (LLM ${d.model}, 확신 ${d.confidence})**: ${d.cause}`,
+    `  **원인 설명 (LLM ${d.model}, 확신 ${d.confidence}${d.insufficient_evidence ? ", 근거 부족으로 판단 보류" : ""})**: ${d.cause}`,
     "",
     ...d.evidence.map((id) => `  - 근거 [${id}] ${d.facts[id]}`),
     ...(d.rejected.length ? [`  - 사실 목록에 없는 근거 ${d.rejected.length}개는 버림: ${d.rejected.join(", ")}`] : []),
@@ -29,7 +29,7 @@ function diagnosisLines(d: Diagnosis): string[] {
 }
 
 function diagnosisHtml(d: Diagnosis): string {
-  return `<div class="diag"><p><b>원인 설명</b> <small>LLM ${esc(d.model)} · 확신 ${esc(d.confidence)} · 아래 근거 밖의 사실은 쓰지 않도록 제한</small></p><p>${esc(d.cause)}</p><ul>${d.evidence
+  return `<div class="diag"><p><b>원인 설명</b> <small>LLM ${esc(d.model)} · 확신 ${esc(d.confidence)}${d.insufficient_evidence ? " · 근거 부족으로 판단 보류" : ""} · 아래 근거 밖의 사실은 쓰지 않도록 제한</small></p><p>${esc(d.cause)}</p><ul>${d.evidence
     .map((id) => `<li><code>${esc(id)}</code> ${esc(d.facts[id])}</li>`)
     .join("")}${d.rejected.length ? `<li><small>사실 목록에 없는 근거 ${d.rejected.length}개는 버림: ${esc(d.rejected.join(", "))}</small></li>` : ""}</ul><ol>${d.options
     .map((o, i) => `<li>${i === d.recommended ? '<span class="chip plan">추천</span> ' : ""}<b>${esc(o.title)}</b> <span class="gate ${o.risk === "high" ? "bad" : "ok"}">${RISK[o.risk]}</span><br><small>${esc(o.detail)}</small></li>`)

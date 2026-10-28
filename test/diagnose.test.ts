@@ -37,7 +37,7 @@ test("diagnose keeps only evidence ids that exist among the facts", async () => 
     model: "fake",
     calls: () => 0,
     askJson: async <T,>() =>
-      ({ cause: "키 크기", evidence: ["[N2]", "T9", "X42"], options: [{ title: "키 교체", detail: "", risk: "low" }], recommended: 5, confidence: "high" }) as T,
+      ({ cause: "키 크기", evidence: ["[N2]", "T9", "X42"], options: [{ title: "키 교체", detail: "", risk: "low" }], recommended: 5, confidence: "high", insufficient_evidence: false }) as T,
   };
   const d = await diagnose(llm, "examples/shop-api", attempt, usage, { service: "s", exposure: "internet", criticality: "high", personalData: true });
   assert.deepEqual(d!.evidence, ["N2", "T9"]);

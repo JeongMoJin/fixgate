@@ -43,7 +43,10 @@ const SCHEMA = {
 const llm = llmFromEnv({ ...process.env, FIXGATE_LLM_MAX_CALLS: process.env.FIXGATE_LLM_MAX_CALLS ?? "20" });
 if (!llm) throw new Error("FIXGATE_LLM=claude-code 로 실행하세요");
 
-const totals = { packages: 0, truthVulnerable: 0, saidYes: 0, saidYesCorrect: 0, caught: 0, missed: 0, unknown: 0, ids: 0, idsCorrect: 0, truthIds: 0, truthIdsNamed: 0, versions: 0, versionsExist: 0, versionsClean: 0 };
+// Advisories published before this date are ones a current model could have seen in training.
+const CUTOFF = process.env.BASELINE_CUTOFF ?? "2025-01-01";
+
+const totals = { packages: 0, truthVulnerable: 0, saidYes: 0, saidYesCorrect: 0, caught: 0, missed: 0, unknown: 0, ids: 0, idsCorrect: 0, truthIds: 0, truthIdsNamed: 0, oldIds: 0, oldIdsNamed: 0, versions: 0, versionsExist: 0, versionsClean: 0 };
 
 for (const dir of process.argv.slice(2)) {
   const deps = parseCycloneDx(generateNpmSbom(dir)).filter((c) => c.direct && !c.dev && c.ecosystem === "npm").slice(0, 60);
@@ -69,7 +72,12 @@ for (const dir of process.argv.slice(2)) {
     const a = answers.find((x) => nameOf(x.package) === c.name);
     const ids = truth.get(c.purl) ?? [];
     const names = new Map<string, Set<string>>();
-    for (const id of ids) names.set(id, new Set([id, ...((await getVuln(id)).aliases ?? [])]));
+    const old = new Set<string>();
+    for (const id of ids) {
+      const vuln = await getVuln(id);
+      names.set(id, new Set([id, ...(vuln.aliases ?? [])]));
+      if (vuln.published && vuln.published < CUTOFF) old.add(id);
+    }
     const known = new Set([...names.values()].flatMap((s) => [...s]));
     totals.packages++;
     if (ids.length) totals.truthVulnerable++;
@@ -87,6 +95,8 @@ for (const dir of process.argv.slice(2)) {
     }
     const named = a?.advisories ?? [];
     totals.truthIdsNamed += [...names.values()].filter((same) => named.some((n) => same.has(n))).length;
+    totals.oldIds += old.size;
+    totals.oldIdsNamed += [...old].filter((id) => named.some((n) => names.get(id)!.has(n))).length;
 
     if (a?.upgradeTo && ids.length) {
       totals.versions++;
@@ -110,6 +120,7 @@ console.log(`
 | '취약하다'고 한 것 중 실제로 취약 | ${totals.saidYesCorrect} / ${totals.saidYes} (${pct(totals.saidYesCorrect, totals.saidYes)}) | 100% — OSV에 있는 것만 보고 |
 | 말한 권고 ID가 실제로 그 버전에 해당 | ${totals.idsCorrect} / ${totals.ids} (${pct(totals.idsCorrect, totals.ids)}) | 100% — ID를 만들지 않음 |
 | 실제 권고 중 이름을 댄 것 | ${totals.truthIdsNamed} / ${totals.truthIds} (${pct(totals.truthIdsNamed, totals.truthIds)}) | ${totals.truthIds} / ${totals.truthIds} |
+| └ ${CUTOFF} 이전 공개 권고만 | ${totals.oldIdsNamed} / ${totals.oldIds} (${pct(totals.oldIdsNamed, totals.oldIds)}) | ${totals.oldIds} / ${totals.oldIds} |
 | 제안한 버전이 npm에 실제로 있음 | ${totals.versionsExist} / ${totals.versions} (${pct(totals.versionsExist, totals.versions)}) | 100% — registry 목록에서 고름 |
 | 제안한 버전에 알려진 취약점이 없음 | ${totals.versionsClean} / ${totals.versions} (${pct(totals.versionsClean, totals.versions)}) | 100% — 후보마다 OSV 확인 |
 | 모른다고 답함 | ${totals.unknown} / ${totals.packages} | — |`);
