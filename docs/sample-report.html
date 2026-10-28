@@ -15,7 +15,7 @@ pre{background:#f4f4f4;padding:10px;overflow:auto;font-size:12px;max-height:240p
 @media (max-width:640px){.tiles{grid-template-columns:repeat(2,1fr)}td:nth-child(n+5),th:nth-child(n+5){display:none}}
 </style></head><body><main>
 <h1>FixGate 보고서 · shop-api</h1>
-<p class="meta">생성 2026-10-28 02:47 · 데이터 OSV, EPSS 2026-10-27, CISA KEV 2026.10.27</p>
+<p class="meta">생성 2026-10-28 02:52 · 데이터 OSV, EPSS 2026-10-27, CISA KEV 2026.10.27</p>
 <p class="meta">노출 인터넷 · 중요도 high · 개인정보 처리 · 담당 커머스 개발팀</p>
 <div class="tiles"><div class="tile now"><b>4</b><span>즉시</span></div><div class="tile week"><b>16</b><span>이번 주</span></div><div class="tile plan"><b>28</b><span>계획</span></div><div class="tile none"><b>19</b><span>영향 없음</span></div></div>
 <ul class="sum"><li>구성요소 149개 중 15개에서 경보 67건</li><li>즉시 4 · 이번 주 16 · 계획 28 · 영향 없음 19</li><li>처리 단위로 묶으면 패키지 10개</li><li>검증 관문을 통과한 조치 3건 적용 → 경보 67건 → 22건, 즉시·이번 주 20건 → 1건</li><li>사람 검토로 넘긴 조치 1건</li></ul>
@@ -33,10 +33,10 @@ pre{background:#f4f4f4;padding:10px;overflow:auto;font-size:12px;max-height:240p
 - security: fixes `Insecure implementation of key retrieval function could lead to Forgeable Public/Private Tokens from RSA to HMAC` - CVE-2022-23541
 - security: fixes `Unrestricted key type could lead to legacy keys usage` - CVE-2022-23539</pre><p><b>테스트 기록</b></p><pre>    at next (&lt;작업 사본&gt;\node_modules\express\lib\router\index.js:275:10)
     at &lt;작업 사본&gt;\node_modules\body-parser\lib\read.js:130:5
-✖ login issues a token that /me accepts (27.8512ms)
-✔ me rejects a forged token (2.863ms)
-✔ stock is read from the inventory service (6.4764ms)
-✔ receipt renders order totals (2.3129ms)
+✖ login issues a token that /me accepts (27.2552ms)
+✔ me rejects a forged token (2.8967ms)
+✔ stock is read from the inventory service (6.4195ms)
+✔ receipt renders order totals (2.0253ms)
 ℹ tests 4
 ℹ suites 0
 ℹ pass 3
@@ -44,10 +44,10 @@ pre{background:#f4f4f4;padding:10px;overflow:auto;font-size:12px;max-height:240p
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 224.2505
+ℹ duration_ms 233.1424
 ✖ failing tests:
 test at test\app.test.js:35:1
-✖ login issues a token that /me accepts (27.8512ms)
+✖ login issues a token that /me accepts (27.2552ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   500 !== 200
       at TestContext.&lt;anonymous&gt; (&lt;작업 사본&gt;\test\app.test.js:41:10)

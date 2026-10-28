@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { notesBetween } from "../src/changelog.ts";
 import { fixedVersion, type OsvVuln } from "../src/osv.ts";
 import { rankTargets, retryOrder, type FixAction } from "../src/remediate.ts";
-import { parseCycloneDx } from "../src/sbom.ts";
+import { lockfileToCycloneDx, parseCycloneDx } from "../src/sbom.ts";
 import { importsOn, scanUsage } from "../src/usage.ts";
 import { applyVersion } from "../src/verify.ts";
 
@@ -28,6 +29,17 @@ test("parseCycloneDx marks direct, dev-only and the path from the root", () => {
   assert.deepEqual(by.b.path, ["a@1.0.0", "b@2.0.0"]);
   assert.equal(by.t.dev, true);
   assert.equal(by["org.acme/core"].ecosystem, "maven");
+});
+
+test("lockfileToCycloneDx matches npm's own SBOM for the example service", () => {
+  const lock = JSON.parse(readFileSync("examples/shop-api/package-lock.json", "utf8"));
+  const components = parseCycloneDx(lockfileToCycloneDx(lock));
+  assert.equal(components.length, 149);
+  const by = (name: string) => components.filter((c) => c.name === name);
+  assert.deepEqual(by("express").map((c) => [c.version, c.direct, c.dev]), [["4.17.1", true, false]]);
+  assert.deepEqual(by("qs")[0].path, ["express@4.17.1", "qs@6.7.0"]);
+  assert.equal(by("nanoid")[0].dev, true);
+  assert.ok(by("ms").some((c) => c.version === "2.1.3" && !c.dev), "a version shipped anywhere counts as shipped");
 });
 
 test("fixedVersion finds the fix for the range that contains the version", () => {

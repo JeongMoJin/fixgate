@@ -1,6 +1,6 @@
 # FixGate 보고서 · shop-api
 
-생성 2026-10-28 02:47 · 데이터: OSV(api.osv.dev), EPSS 2026-10-27, CISA KEV 2026.10.27
+생성 2026-10-28 02:52 · 데이터: OSV(api.osv.dev), EPSS 2026-10-27, CISA KEV 2026.10.27
 서비스: 노출 인터넷 · 중요도 high · 개인정보 처리 · 담당 커머스 개발팀
 
 ## 요약
@@ -67,10 +67,10 @@
 ```
     at next (<작업 사본>\node_modules\express\lib\router\index.js:275:10)
     at <작업 사본>\node_modules\body-parser\lib\read.js:130:5
-✖ login issues a token that /me accepts (27.8512ms)
-✔ me rejects a forged token (2.863ms)
-✔ stock is read from the inventory service (6.4764ms)
-✔ receipt renders order totals (2.3129ms)
+✖ login issues a token that /me accepts (27.2552ms)
+✔ me rejects a forged token (2.8967ms)
+✔ stock is read from the inventory service (6.4195ms)
+✔ receipt renders order totals (2.0253ms)
 ℹ tests 4
 ℹ suites 0
 ℹ pass 3
@@ -78,10 +78,10 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 224.2505
+ℹ duration_ms 233.1424
 ✖ failing tests:
 test at test\app.test.js:35:1
-✖ login issues a token that /me accepts (27.8512ms)
+✖ login issues a token that /me accepts (27.2552ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   500 !== 200
       at TestContext.<anonymous> (<작업 사본>\test\app.test.js:41:10)
