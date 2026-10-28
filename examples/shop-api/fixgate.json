@@ -1,0 +1,7 @@
+{
+  "service": "shop-api",
+  "exposure": "internet",
+  "criticality": "high",
+  "personalData": true,
+  "owner": "커머스 개발팀"
+}

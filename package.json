@@ -1,0 +1,28 @@
+{
+  "name": "fixgate",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An agent that turns SBOM vulnerability alerts into a fix order with reasons, and counts a fix as done only after tests and a re-scan pass",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "fixgate": "src/cli.ts"
+  },
+  "scripts": {
+    "scan": "node src/cli.ts scan",
+    "fix": "node src/cli.ts fix",
+    "test": "node --test \"test/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "semver": "^7.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/semver": "^7.7.0",
+    "typescript": "^5.9.2"
+  }
+}

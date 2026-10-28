@@ -1,0 +1,19 @@
+{
+  "name": "shop-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sample legacy service for FixGate demos. Its dependencies are pinned to old, vulnerable versions on purpose.",
+  "main": "src/server.js",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
+  "dependencies": {
+    "axios": "0.21.1",
+    "express": "4.17.1",
+    "jsonwebtoken": "8.5.1",
+    "lodash": "4.17.20"
+  },
+  "devDependencies": {
+    "mocha": "9.1.0"
+  }
+}
