@@ -38,6 +38,9 @@ flowchart LR
 - **axios** 0.21.1 → 0.34.0, **lodash** 4.17.20 → 4.18.1: 관문 4개 통과.
 - **express** 4.17.1 → 4.20.0: 자기 취약점은 사라졌지만 '새 취약점 없음' 관문에서 막혔다 (qs가 새 권고에 걸림). 에이전트가 다음 후보 4.22.3을 시도해 통과.
 - **jsonwebtoken** 8.5.1 → 9.0.0: 기존 테스트가 실패해 되돌리고 사람에게 넘김. 릴리스 노트에서 원인을 찾아 함께 넘긴다: "RSA key size must be 2048 bits or greater." 이 서비스는 1024비트 키를 쓴다. 키 교체는 사람이 정할 일이다.
+  LLM 단계를 켜면 릴리스 노트·코드·테스트·로그 줄에 번호를 붙여 주고, 그 번호만 근거로 원인과 선택지를 받는다. 이번 답: "9.0.0부터 RSA 키는 2048비트 이상이어야 하고 [N6] 테스트는 1024비트 키를 쓴다 [T9] … 실제 오류 메시지는 로그에 없어 확정은 아니다." 추천은 키 교체(위험 낮음), 8.5.1 유지나 우회는 위험 높음으로 표시했다.
+
+전체 보고서: [docs/sample-report.html](docs/sample-report.html) · [docs/sample-report.md](docs/sample-report.md)
 
 ## 공개 프로젝트 9개 측정
 
@@ -47,6 +50,26 @@ jitsi-meet, insomnia, bitwarden clients, node-red 등 npm lockfile을 커밋하�
 - 즉시·이번 주는 218건(23.6%), 패키지로 묶으면 101개 조치.
 
 저장소별 숫자와 다시 돌리는 방법은 [docs/benchmark.md](docs/benchmark.md).
+
+## LLM은 어디에 쓰나
+
+사실 판단(취약 여부, 버전, 점수)에는 쓰지 않는다. 같은 질문을 도구 없이 LLM에게만 했더니(서비스 10개, 운영 패키지 440개):
+
+| | LLM 단독 | FixGate |
+|---|---|---|
+| 실제 권고 중 이름을 댄 것 | 23.4% (30/128) | 100% |
+| 말한 권고 ID가 그 버전에 실제로 해당 | 53.4% (31/58) | 100% |
+| 제안한 업그레이드 버전에 알려진 취약점이 없음 | 43.8% (7/16) | 100% |
+
+모델의 지식은 학습 시점에 멈춰 있고 취약점은 매일 나온다. 측정 방법은 [docs/llm-vs-tools.md](docs/llm-vs-tools.md).
+
+그래서 LLM은 **관문이 실패했을 때 원인과 선택지를 설명하는 데에만** 쓴다. 근거로 줄 수 있는 사실(릴리스 노트, 코드 사용처, 실패한 테스트 파일, 로그)에 번호를 붙여 주고, 답의 근거 번호가 그 목록에 없으면 버린다.
+
+```bash
+FIXGATE_LLM=claude-code node src/cli.ts fix examples/shop-api
+```
+
+Claude Code CLI의 headless 모드(`claude -p`)로 호출해, 로그인한 Claude Code 구독으로 동작한다(API 키 불필요). 도구는 끄고(`--tools ""`), 빈 작업 폴더에서, JSON 스키마로 답을 받는다. 답은 `.fixgate-cache/llm/`에 남아 같은 질문을 다시 호출하지 않고, 한 번 실행의 호출 수는 `FIXGATE_LLM_MAX_CALLS`(기본 10)로 막는다. 모델은 `FIXGATE_LLM_MODEL`(기본 `sonnet`).
 
 ## 원칙
 
@@ -91,7 +114,7 @@ CISA [SSVC](https://www.cisa.gov/stakeholder-specific-vulnerability-categorizati
 - 조치(fix)는 지금 npm 프로젝트만 지원한다. 매칭과 우선순위(scan)는 CycloneDX SBOM이면 생태계와 관계없이 동작한다.
 - '실제 사용'은 패키지 단위 import 검색이다. 취약한 함수까지 따라가는 도달성 분석은 아니다.
 - 단계 임계값(EPSS 10%, 상위 5%)은 조직 정책에 맞게 조정해야 한다.
-- 다음 단계: 관문이 실패했을 때 테스트 기록·릴리스 노트·코드 사용처를 묶어 원인과 선택지를 설명하는 LLM 단계. 사실 판단에는 쓰지 않는다.
+- LLM 단계는 지금 Claude Code CLI로만 호출한다. 조직 환경에서는 회사가 쓰는 모델 API로 바꿔 끼우면 된다 (`src/llm.ts` 한 파일).
 
 ## 데이터 출처
 

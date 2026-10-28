@@ -1,0 +1,97 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import type { Llm } from "./llm.ts";
+import type { ServiceContext, Usage } from "./types.ts";
+import type { Attempt } from "./verify.ts";
+
+export interface Diagnosis {
+  cause: string;
+  evidence: string[];
+  /** Ids the model cited that were not among the facts it was given; dropped from evidence. */
+  rejected: string[];
+  options: { title: string; detail: string; risk: "low" | "medium" | "high" }[];
+  recommended: number;
+  confidence: "high" | "medium" | "low";
+  facts: Record<string, string>;
+  model: string;
+}
+
+const SCHEMA = {
+  type: "object",
+  properties: {
+    cause: { type: "string", description: "Why the tests failed, in one or two sentences" },
+    evidence: { type: "array", items: { type: "string" }, description: "Fact ids that support the cause" },
+    options: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          detail: { type: "string" },
+          risk: { type: "string", enum: ["low", "medium", "high"] },
+        },
+        required: ["title", "detail", "risk"],
+        additionalProperties: false,
+      },
+    },
+    recommended: { type: "integer", description: "Index into options" },
+    confidence: { type: "string", enum: ["high", "medium", "low"] },
+  },
+  required: ["cause", "evidence", "options", "recommended", "confidence"],
+  additionalProperties: false,
+};
+
+/**
+ * Collects the facts a person would read to understand a failed upgrade and
+ * gives each line an id: release notes (N), production code that calls the
+ * package (C), the failing test file (T), and the test log (L).
+ */
+export function gatherFacts(dir: string, attempt: Attempt, usage: Usage): Record<string, string> {
+  const failed = attempt.tries.find((t) => t.gates.some((g) => g.name === "test" && !g.ok));
+  const facts: Record<string, string> = {};
+  failed?.notes?.lines.forEach((line, i) => (facts[`N${i + 1}`] = `${failed.notes!.file}: ${line}`));
+  [...usage.imports, ...usage.calls].slice(0, 12).forEach((e, i) => (facts[`C${i + 1}`] = `${e.file}:${e.line} ${e.text}`));
+
+  const testFile = failed ? /test[\\/][\w.\-\\/]+\.(c|m)?(j|t)sx?/.exec(failed.log)?.[0]?.replaceAll("\\", "/") : undefined;
+  if (testFile && existsSync(join(dir, testFile))) {
+    readFileSync(join(dir, testFile), "utf8")
+      .split(/\r?\n/)
+      .slice(0, 40)
+      .forEach((text, i) => text.trim() && (facts[`T${i + 1}`] = `${testFile}:${i + 1} ${text.trim()}`));
+  }
+  failed?.log.split("\n").slice(-20).forEach((line, i) => (facts[`L${i + 1}`] = line));
+  return facts;
+}
+
+export async function diagnose(
+  llm: Llm,
+  dir: string,
+  attempt: Attempt,
+  usage: Usage,
+  context: ServiceContext,
+): Promise<Diagnosis | null> {
+  const a = attempt.action;
+  const tried = attempt.tries.at(-1)?.version ?? a.target;
+  const facts = gatherFacts(dir, attempt, usage);
+  const prompt = [
+    `서비스 ${context.service}(노출: ${context.exposure}, 개인정보: ${context.personalData ? "처리" : "없음"})에서`,
+    `보안 조치로 ${a.name}를 ${a.current}에서 ${tried}로 올렸더니 기존 테스트가 실패했다. 변경은 되돌려 둔 상태다.`,
+    `이 조치는 취약점 ${a.resolves.length}건(${a.resolves.join(", ")})을 없애기 위한 것이다.`,
+    "아래 사실만 근거로, 실패 원인과 담당자가 고를 수 있는 선택지 2~3개를 제시하라.",
+    "보안을 약하게 만드는 우회책은 위험도를 high로 표시하라.",
+    "",
+    ...Object.entries(facts).map(([id, text]) => `[${id}] ${text}`),
+  ].join("\n");
+
+  const out = await llm.askJson<Omit<Diagnosis, "rejected" | "facts" | "model">>(`diagnose ${a.name}@${tried}`, prompt, SCHEMA);
+  if (!out) return null;
+  const ids = out.evidence.map((e) => e.replace(/[[\]]/g, "").trim());
+  return {
+    ...out,
+    evidence: ids.filter((id) => id in facts),
+    rejected: ids.filter((id) => !(id in facts)),
+    recommended: Math.min(Math.max(out.recommended, 0), Math.max(out.options.length - 1, 0)),
+    facts,
+    model: llm.model,
+  };
+}

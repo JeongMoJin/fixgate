@@ -59,6 +59,8 @@ export interface Usage {
   imports: UsageEvidence[];
   /** Members called on the imported binding, such as "template" for lodash.template. */
   members: string[];
+  /** Lines where those members are called. */
+  calls: UsageEvidence[];
 }
 
 export interface ServiceContext {

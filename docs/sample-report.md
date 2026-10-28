@@ -1,6 +1,6 @@
 # FixGate 보고서 · shop-api
 
-생성 2026-10-28 02:52 · 데이터: OSV(api.osv.dev), EPSS 2026-10-27, CISA KEV 2026.10.27
+생성 2026-10-28 03:35 · 데이터: OSV(api.osv.dev), EPSS 2026-10-27, CISA KEV 2026.10.27
 서비스: 노출 인터넷 · 중요도 high · 개인정보 처리 · 담당 커머스 개발팀
 
 ## 요약
@@ -67,10 +67,10 @@
 ```
     at next (<작업 사본>\node_modules\express\lib\router\index.js:275:10)
     at <작업 사본>\node_modules\body-parser\lib\read.js:130:5
-✖ login issues a token that /me accepts (27.2552ms)
-✔ me rejects a forged token (2.8967ms)
-✔ stock is read from the inventory service (6.4195ms)
-✔ receipt renders order totals (2.0253ms)
+✖ login issues a token that /me accepts (28.4256ms)
+✔ me rejects a forged token (3.089ms)
+✔ stock is read from the inventory service (6.362ms)
+✔ receipt renders order totals (2.0443ms)
 ℹ tests 4
 ℹ suites 0
 ℹ pass 3
@@ -78,10 +78,10 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 233.1424
+ℹ duration_ms 226.8666
 ✖ failing tests:
 test at test\app.test.js:35:1
-✖ login issues a token that /me accepts (27.2552ms)
+✖ login issues a token that /me accepts (28.4256ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   500 !== 200
       at TestContext.<anonymous> (<작업 사본>\test\app.test.js:41:10)
@@ -96,6 +96,18 @@ test at test\app.test.js:35:1
     diff: 'simple'
   }
 ```
+
+  **원인 설명 (LLM sonnet, 확신 medium)**: 9.0.0부터 RSA 키는 2048비트 이상이어야 한다 [N6]. 테스트는 1024비트 키를 만들어 쓴다 [T7][T9]. 그래서 jwt.sign이 키를 거부한 것으로 보이고, /login이 500을 반환했다 [C2][L9]. 다만 실제 오류 메시지는 로그에 없어서 확정은 아니다.
+
+  - 근거 [N6] github.com/auth0/node-jsonwebtoken/CHANGELOG.md: - RSA key size must be 2048 bits or greater. ([ecdf6cc6073ea13a7e71df5fad043550f08d0fa6]https://github.com/auth0/node-jsonwebtoken/commit/ecdf6cc6073ea13a7e71df5fad043550f08d0fa6)
+  - 근거 [T7] test/app.test.js:7 // The production key pair is 1024-bit RSA, issued before the 2048-bit policy.
+  - 근거 [T9] test/app.test.js:9 modulusLength: 1024,
+  - 근거 [C2] src/app.js:14 const token = jwt.sign({ sub: userId }, privateKey, { algorithm: "RS256", expiresIn: "1h" });
+  - 근거 [L9]   500 !== 200
+
+  1. **추천** 운영 키를 2048비트 이상으로 교체하고 테스트 키도 맞춘다 (위험 낮음) — 새 RSA 2048비트 이상 키 쌍을 발급하고 테스트의 modulusLength를 2048로 올린다. 그 뒤 9.0.0으로 올려 취약점 3건 조치를 유지한다. 운영 키는 1024비트라 [T7] 교체 일정과 기존 토큰 처리 계획이 필요하다. 이 부분은 주어진 사실에 없어 불확실하다.
+  2. 테스트 키만 2048비트로 바꾸고 운영 키 교체는 따로 진행한다 (위험 보통) — 테스트는 통과시킬 수 있다. 하지만 운영 키가 1024비트면 [T7] 배포 후 서명이 실패할 수 있다. 운영 키 교체를 먼저 끝내거나 같은 배포에 넣어야 한다.
+  3. 8.5.1을 유지하거나 키 크기 검사를 우회한다 (위험 높음) — 취약점 3건이 그대로 남는다. 인터넷에 노출되고 개인정보를 처리하는 서비스라 보안을 약하게 만드는 선택이다. 우회 옵션이 있는지도 주어진 사실에 없다.
 
 → 사람 검토 필요. 위 기록과 함께 담당 개발팀에 넘깁니다.
 

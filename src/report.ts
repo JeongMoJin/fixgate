@@ -1,3 +1,4 @@
+import type { Diagnosis } from "./diagnose.ts";
 import type { Triage } from "./triage.ts";
 import type { Finding, Tier } from "./types.ts";
 import { TIER_LABEL, TIER_ORDER } from "./types.ts";
@@ -7,8 +8,32 @@ export interface RunResult {
   before: Triage;
   after: Triage | null;
   attempts: Attempt[];
+  /** LLM explanations of failed test gates, by package name. */
+  diagnoses: Record<string, Diagnosis>;
   generatedAt: string;
   diff: string;
+}
+
+const RISK: Record<string, string> = { low: "위험 낮음", medium: "위험 보통", high: "위험 높음" };
+
+function diagnosisLines(d: Diagnosis): string[] {
+  return [
+    "",
+    `  **원인 설명 (LLM ${d.model}, 확신 ${d.confidence})**: ${d.cause}`,
+    "",
+    ...d.evidence.map((id) => `  - 근거 [${id}] ${d.facts[id]}`),
+    ...(d.rejected.length ? [`  - 사실 목록에 없는 근거 ${d.rejected.length}개는 버림: ${d.rejected.join(", ")}`] : []),
+    "",
+    ...d.options.map((o, i) => `  ${i + 1}. ${i === d.recommended ? "**추천** " : ""}${o.title} (${RISK[o.risk]}) — ${o.detail}`),
+  ];
+}
+
+function diagnosisHtml(d: Diagnosis): string {
+  return `<div class="diag"><p><b>원인 설명</b> <small>LLM ${esc(d.model)} · 확신 ${esc(d.confidence)} · 아래 근거 밖의 사실은 쓰지 않도록 제한</small></p><p>${esc(d.cause)}</p><ul>${d.evidence
+    .map((id) => `<li><code>${esc(id)}</code> ${esc(d.facts[id])}</li>`)
+    .join("")}${d.rejected.length ? `<li><small>사실 목록에 없는 근거 ${d.rejected.length}개는 버림: ${esc(d.rejected.join(", "))}</small></li>` : ""}</ul><ol>${d.options
+    .map((o, i) => `<li>${i === d.recommended ? '<span class="chip plan">추천</span> ' : ""}<b>${esc(o.title)}</b> <span class="gate ${o.risk === "high" ? "bad" : "ok"}">${RISK[o.risk]}</span><br><small>${esc(o.detail)}</small></li>`)
+    .join("")}</ol></div>`;
 }
 
 export function countTiers(findings: Finding[]): Record<Tier, number> {
@@ -98,6 +123,8 @@ export function renderMarkdown(run: RunResult): string {
         if (t.notes) out.push("", `  릴리스 노트 (${t.notes.file}):`, "", "```", ...t.notes.lines, "```");
         if (t.log) out.push("", "  테스트 기록:", "", "```", t.log, "```");
       }
+      const d = run.diagnoses[a.name];
+      if (d) out.push(...diagnosisLines(d));
       if (!at.passed) out.push("", "→ 사람 검토 필요. 위 기록과 함께 담당 개발팀에 넘깁니다.");
       out.push("");
     }
@@ -149,7 +176,8 @@ export function renderHtml(run: RunResult): string {
         )
         .join("");
       const note = at.passed && a.outsideCaret ? "호환 범위(^) 밖 버전 — 기존 테스트로 동작 확인됨" : a.note;
-      return `<div class="fix ${at.passed ? "ok" : "bad"}"><h3>${at.passed ? "검증 통과" : "사람 검토 필요"} · ${esc(a.name)} ${esc(a.current)} → ${esc(at.version ?? a.target ?? "고친 버전 없음")}</h3><p>${a.kind === "direct" ? "직접 의존성" : "간접 의존성 override"} · 대상 경보 ${a.resolves.length}건 · ${esc(note)}</p><ul>${tries || `<li>${esc(a.note)}</li>`}</ul></div>`;
+      const d = run.diagnoses[a.name];
+      return `<div class="fix ${at.passed ? "ok" : "bad"}"><h3>${at.passed ? "검증 통과" : "사람 검토 필요"} · ${esc(a.name)} ${esc(a.current)} → ${esc(at.version ?? a.target ?? "고친 버전 없음")}</h3><p>${a.kind === "direct" ? "직접 의존성" : "간접 의존성 override"} · 대상 경보 ${a.resolves.length}건 · ${esc(note)}</p>${d ? diagnosisHtml(d) : ""}<ul>${tries || `<li>${esc(a.note)}</li>`}</ul></div>`;
     })
     .join("");
 
@@ -178,7 +206,7 @@ ul.sum{padding-left:18px}table{width:100%;border-collapse:collapse;font-size:13p
 small{color:var(--soft)}.chip{display:inline-block;padding:1px 8px;border-radius:99px;color:#fff;font-size:12px;white-space:nowrap}.chip.now{background:var(--now)}.chip.week{background:var(--week)}.chip.plan{background:var(--plan)}.chip.none{background:var(--none)}
 .fix{border:1px solid var(--line);border-left:4px solid #2e7d32;padding:12px 14px;margin:10px 0}.fix.bad{border-left-color:var(--now)}.fix p{margin:0;color:var(--soft);font-size:13px}.fix ul{margin:8px 0 0;padding-left:18px}
 .gate{display:inline-block;font-size:12px;padding:1px 6px;margin:2px;border:1px solid #2e7d32;color:#2e7d32}.gate.bad{border-color:var(--now);color:var(--now)}
-pre{background:#f4f4f4;padding:10px;overflow:auto;font-size:12px;max-height:240px}details{margin:8px 0}summary{cursor:pointer;padding:6px 0}
+pre{background:#f4f4f4;padding:10px;overflow:auto;font-size:12px;max-height:240px}.diag{background:#f6f8fb;border:1px solid #d9e2ef;padding:10px 14px;margin:10px 0}.diag p{color:var(--ink);margin:4px 0}.diag ul,.diag ol{margin:6px 0;padding-left:20px;font-size:13px}details{margin:8px 0}summary{cursor:pointer;padding:6px 0}
 @media (max-width:640px){.tiles{grid-template-columns:repeat(2,1fr)}td:nth-child(n+5),th:nth-child(n+5){display:none}}
 </style></head><body><main>
 <h1>FixGate 보고서 · ${esc(c.service)}</h1>

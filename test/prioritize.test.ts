@@ -8,7 +8,7 @@ function facts(over: Partial<Facts> & { severity?: Facts["advisory"]["severity"]
     advisory: { id: "GHSA-1", cve: "CVE-2026-1", aliases: [], summary: "", severity: over.severity ?? "MODERATE", fixed: over.fixed === undefined ? "1.0.1" : over.fixed, url: "" },
     epss: over.epss ?? null,
     kev: over.kev ?? null,
-    usage: over.usage ?? { imports: [{ file: "src/a.js", line: 1, text: "require('x')" }], members: ["run"] },
+    usage: over.usage ?? { imports: [{ file: "src/a.js", line: 1, text: "require('x')" }], members: ["run"], calls: [] },
     context: { service: "s", exposure: "internet", criticality: "medium", personalData: false, ...over.context },
   };
 }

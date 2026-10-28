@@ -13,7 +13,7 @@ const TEST_FILE = /\.(test|spec)\.(c|m)?(j|t)sx?$/;
  */
 export function scanUsage(dir: string, packages: string[]): Map<string, Usage> {
   const wanted = new Set(packages);
-  const usage = new Map<string, Usage>(packages.map((p) => [p, { imports: [], members: [] }]));
+  const usage = new Map<string, Usage>(packages.map((p) => [p, { imports: [], members: [], calls: [] }]));
 
   for (const file of sourceFiles(dir)) {
     const lines = readFileSync(file, "utf8").split(/\r?\n/);
@@ -28,11 +28,13 @@ export function scanUsage(dir: string, packages: string[]): Map<string, Usage> {
       }
     });
     for (const [binding, pkg] of bindings) {
-      const members = usage.get(pkg)!.members;
+      const { members, calls } = usage.get(pkg)!;
       const pattern = new RegExp(`(?<![\\w$.])${escape(binding)}\\.(\\w+)`, "g");
-      for (const text of lines) {
-        for (const m of text.matchAll(pattern)) if (!members.includes(m[1])) members.push(m[1]);
-      }
+      lines.forEach((text, i) => {
+        const found = [...text.matchAll(pattern)];
+        for (const m of found) if (!members.includes(m[1])) members.push(m[1]);
+        if (found.length && calls.length < 8) calls.push({ file: relative(dir, file).replaceAll("\\", "/"), line: i + 1, text: text.trim() });
+      });
     }
   }
   return usage;

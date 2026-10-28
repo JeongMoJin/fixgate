@@ -49,7 +49,7 @@ export async function triage(dir: string, opts: { sbom?: CycloneDx } = {}): Prom
       advisory,
       epss: advisory.cve ? epss.get(advisory.cve) ?? null : null,
       kev: advisory.cve ? kev.byCve.get(advisory.cve) ?? null : null,
-      usage: usage.get(component.name) ?? { imports: [], members: [] },
+      usage: usage.get(component.name) ?? { imports: [], members: [], calls: [] },
       context,
     };
     return { ...facts, ...decide(facts) };

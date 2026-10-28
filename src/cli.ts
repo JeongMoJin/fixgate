@@ -2,6 +2,8 @@
 import { spawnSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { diagnose, type Diagnosis } from "./diagnose.ts";
+import { llmFromEnv } from "./llm.ts";
 import { planFixes } from "./remediate.ts";
 import { renderHtml, renderMarkdown, renderVex, type RunResult } from "./report.ts";
 import type { CycloneDx } from "./sbom.ts";
@@ -15,7 +17,11 @@ const USAGE = `FixGate — SBOM 취약점 경보를 처리 순서와 검증된 �
 
   fixgate fix <서비스 폴더> [--out <폴더>]
       scan 후 작업 사본에서 조치를 적용하고, 설치·테스트·재스캔·새 취약점 관문을
-      모두 통과한 조치만 남깁니다. 원본 폴더는 건드리지 않습니다.`;
+      모두 통과한 조치만 남깁니다. 원본 폴더는 건드리지 않습니다.
+
+  FIXGATE_LLM=claude-code 이면 테스트 관문에서 실패한 조치의 원인과 선택지를
+  Claude Code(로그인한 구독)로 설명합니다. FIXGATE_LLM_MODEL(기본 sonnet),
+  FIXGATE_LLM_MAX_CALLS(기본 10). 답은 .fixgate-cache/llm에 남아 다시 묻지 않습니다.`;
 
 async function main(argv: string[]): Promise<number> {
   const [command, target] = argv;
@@ -34,6 +40,7 @@ async function main(argv: string[]): Promise<number> {
   let after = null;
   let attempts: Attempt[] = [];
   let diff = "";
+  const diagnoses: Record<string, Diagnosis> = {};
   if (command === "fix") {
     const work = makeWorkCopy(dir, before.context.service);
     const baseline = runTests(work);
@@ -46,13 +53,23 @@ async function main(argv: string[]): Promise<number> {
     const middle = await triage(work);
     attempts.push(...(await verifyActions(work, await planFixes(middle.findings, "override"))));
     after = await triage(work);
+
+    const llm = llmFromEnv();
+    if (llm) {
+      for (const at of attempts.filter((t) => t.tries.some((x) => x.gates.some((g) => g.name === "test" && !g.ok)))) {
+        const usage = before.findings.find((f) => f.component.name === at.action.name)?.usage ?? { imports: [], members: [], calls: [] };
+        const d = await diagnose(llm, dir, at, usage, before.context);
+        if (d) diagnoses[at.action.name] = d;
+      }
+      console.log(`LLM(${llm.model}) 새 호출 ${llm.calls()}회`);
+    }
     const raw = spawnSync("git", ["diff", "--no-index", "--no-color", join(dir, "package.json"), join(work, "package.json")], { encoding: "utf8" }).stdout;
     diff = raw ? ["--- package.json (원본)", "+++ package.json (조치 후)", ...raw.split("\n").slice(4)].join("\n").trimEnd() : "";
     copyFileSync(join(work, "package.json"), join(out, "package.json"));
     copyFileSync(join(work, "package-lock.json"), join(out, "package-lock.json"));
   }
 
-  const run: RunResult = { before, after, attempts, generatedAt: new Date().toISOString().slice(0, 16).replace("T", " "), diff };
+  const run: RunResult = { before, after, attempts, diagnoses, generatedAt: new Date().toISOString().slice(0, 16).replace("T", " "), diff };
   writeFileSync(join(out, "report.md"), renderMarkdown(run));
   writeFileSync(join(out, "report.html"), renderHtml(run));
   writeFileSync(join(out, "vex.json"), JSON.stringify(renderVex(before), null, 2) + "\n");
