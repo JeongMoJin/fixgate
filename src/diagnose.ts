@@ -119,8 +119,13 @@ export async function diagnose(
   const out = await llm.askJson<Omit<Diagnosis, "rejected" | "facts" | "model">>(`diagnose ${a.name}@${tried}`, prompt, SCHEMA);
   if (!out) return null;
   const ids = citedIds(out.evidence);
+  const valid = ids.filter((id) => id in facts);
+  // A cause needs an observed failure (log or test) and something on the code side
+  // (code, source, release note). The model's own confidence is not enough.
+  const grounded = valid.some((id) => /^[LT]/.test(id)) && valid.some((id) => /^[CSN]/.test(id));
   return {
     ...out,
+    insufficient_evidence: out.insufficient_evidence || !grounded,
     evidence: ids.filter((id) => id in facts),
     rejected: ids.filter((id) => !(id in facts)),
     recommended: Math.min(Math.max(out.recommended, 0), Math.max(out.options.length - 1, 0)),

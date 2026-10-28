@@ -41,10 +41,11 @@ export function decide(f: Facts): { tier: Tier; reasons: Reason[] } {
     return { tier: "now", reasons };
   }
 
-  if (component.dev) {
+  if (component.dev && !context.bundled) {
     reasons.push({ text: "개발·테스트에만 쓰는 의존성이라 운영 빌드에 들어가지 않음 (빌드 환경 위험은 별도 관리)", source: "SBOM cdx:npm:package:development" });
     return { tier: "none", reasons };
   }
+  if (component.dev) reasons.push({ text: "개발 의존성이지만 번들 서비스라 결과물에 들어갈 수 있어 운영으로 봄", source: "fixgate.json bundled" });
 
   const internet = context.exposure === "internet";
   const severe = advisory.severity === "CRITICAL" || advisory.severity === "HIGH";

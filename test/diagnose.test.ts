@@ -43,6 +43,18 @@ test("diagnose keeps only evidence ids that exist among the facts", async () => 
   assert.deepEqual(d!.evidence, ["N2", "T9"]);
   assert.deepEqual(d!.rejected, ["X42"]);
   assert.equal(d!.recommended, 0);
+  assert.equal(d!.insufficient_evidence, false, "a test line (observed failure) plus a release note is enough");
+});
+
+test("diagnose holds back when no cited fact shows the observed failure", async () => {
+  const llm: Llm = {
+    model: "fake",
+    calls: () => 0,
+    askJson: async <T,>() =>
+      ({ cause: "릴리스 노트상 키 크기 변경", evidence: ["[N2]"], options: [{ title: "키 교체", detail: "", risk: "low" }], recommended: 0, confidence: "high", insufficient_evidence: false }) as T,
+  };
+  const d = await diagnose(llm, "examples/shop-api", attempt, usage, { service: "s", exposure: "internet", criticality: "high", personalData: true });
+  assert.equal(d!.insufficient_evidence, true);
 });
 
 test("without FIXGATE_LLM the LLM step stays off", async () => {

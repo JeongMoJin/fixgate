@@ -19,6 +19,12 @@ test("dev-only dependencies are not affected in production", () => {
   assert.match(r.reasons[0].source, /development/);
 });
 
+test("a bundled front end treats dev dependencies as shipped", () => {
+  const r = decide(facts({ component: { dev: true } as Facts["component"], severity: "HIGH", context: { bundled: true } as Facts["context"] }));
+  assert.equal(r.tier, "week");
+  assert.ok(r.reasons.some((x) => x.source === "fixgate.json bundled"));
+});
+
 test("a malicious package is urgent even as a dev-only dependency", () => {
   const f = facts({ component: { dev: true } as Facts["component"], severity: "UNKNOWN" });
   f.advisory = { ...f.advisory, id: "MAL-2026-1234", cve: null };

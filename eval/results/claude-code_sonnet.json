@@ -1,6 +1,6 @@
 {
   "model": "claude-code:sonnet",
-  "at": "2026-10-28T04:32:21.941Z",
+  "at": "2026-10-28T04:57:10.830Z",
   "results": [
     {
       "id": "jwt-rsa-key",
@@ -8,8 +8,8 @@
       "correct": true,
       "evidenceValid": true,
       "safe": true,
-      "answer": "9.0.0부터 RSA 키는 2048비트 이상이어야 한다[N6]. 테스트는 1024비트 키 쌍을 만든다[T8][T9]. /login은 이 키로 RS256 서명을 한다[C2]. 그래서 서명 단계에서 예외가 나고 500이 반환된 것으로 보인다[L9]. 다만 로그에 실제 오류 메시지는 없어서, 이 연결은 코드와 릴리스 노트로 추정한 것이다. → 추천: 2048비트 이상 RSA 키로 교체 후 9.0.0 적용 (low)",
-      "cited": 7,
+      "answer": "테스트가 1024비트 RSA 키를 쓰는데[T9], 9.0.0은 RSA 키를 2048비트 이상만 허용한다[N6]. /login의 jwt.sign(RS256)[C2]이 이 키를 거부해 500이 난 것으로 보인다[L9]. 다만 로그에 실제 예외 메시지는 없어서 이 연결은 추정이다. → 추천: 2048비트 이상 RSA 키로 교체 (medium)",
+      "cited": 6,
       "rejected": 0,
       "note": "8.5.1 → 9.0.0"
     },
@@ -19,8 +19,8 @@
       "correct": true,
       "evidenceValid": true,
       "safe": true,
-      "answer": "src/callback.js가 호출하는 forge.util.parseUrl이 1.4.1에는 함수로 없어서 TypeError가 났다 [L14][C2]. 주어진 릴리스 노트 발췌에는 이 API가 제거됐다는 말이 없다. 그래서 제거 경위는 불확실하지만, 오류 자체는 로그와 코드로 확인된다 [N1]. → 추천: parseUrl 호출을 Node 내장 URL로 교체하고 1.4.1 유지 (medium)",
-      "cited": 4,
+      "answer": "1.4.1에서는 `forge.util.parseUrl`이 함수가 아니어서 TypeError가 납니다 [L14]. `callbackTarget`이 이 함수를 부르기 때문에 테스트가 실패합니다 [C2][S4][T6]. 제공된 릴리스 노트에는 이 함수의 제거 내용이 없습니다. 그래서 제거된 이유와 시점은 확실하지 않습니다. → 추천: Node 내장 URL로 교체하고 node-forge 1.4.1은 유지 (low)",
+      "cited": 5,
       "rejected": 0,
       "note": "0.10.0 → 1.4.1"
     },
@@ -30,8 +30,8 @@
       "correct": true,
       "evidenceValid": true,
       "safe": true,
-      "answer": "`fullName`은 Member 클래스의 getter라서 프로토타입에 있는 속성이다 [S7][S2]. 템플릿이 이 속성을 읽는데 [C2], handlebars 4.6.0부터 프로토타입 속성 접근이 기본적으로 막혀 있다 [N20][N21]. 그래서 `fullName`이 빈 값으로 렌더링됐다 [L7][L8]. 인스턴스에 직접 붙인 `count`는 정상 출력됐다 [L7][S14]. → 추천: 템플릿에 일반 객체를 넘기기 (권장) (low)",
-      "cited": 7,
+      "answer": "fullName은 Member 클래스의 프로토타입 getter다[S7][S8]. handlebars 4.6.0 이후에는 프로토타입 속성 접근이 기본으로 막혀 있다[N21][N7]. 그래서 {{fullName}}이 빈 값이 됐다[C2][L7][L8]. 인스턴스에 직접 넣은 count는 정상 출력됐다[S14][L7]. 코드와 로그가 릴리스 노트와 맞아서 이 원인으로 판단한다. → 추천: 코드에서 평범한 객체로 넘기기 (low)",
+      "cited": 9,
       "rejected": 0,
       "note": "4.0.12 → 4.7.10"
     },

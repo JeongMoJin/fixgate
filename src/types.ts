@@ -73,6 +73,8 @@ export interface ServiceContext {
   criticality: "high" | "medium" | "low";
   personalData: boolean;
   owner?: string;
+  /** A bundled front end can ship dev dependencies, so dev-only is no proof of "not in production". */
+  bundled?: boolean;
 }
 
 /** Every reason names where its fact came from, so nothing in a report is unsourced. */
