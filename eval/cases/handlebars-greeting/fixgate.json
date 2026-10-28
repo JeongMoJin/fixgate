@@ -1,0 +1,1 @@
+{ "service": "handlebars-greeting", "exposure": "internet", "criticality": "high", "personalData": false }

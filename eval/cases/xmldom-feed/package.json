@@ -1,0 +1,8 @@
+{
+  "name": "xmldom-feed",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Eval case: a supplier feed reader built on xmldom 0.6",
+  "scripts": { "test": "node --test \"test/*.test.js\"" },
+  "dependencies": { "xmldom": "0.6.0" }
+}

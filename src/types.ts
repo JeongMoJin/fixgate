@@ -35,6 +35,8 @@ export interface Advisory {
   severity: Severity;
   /** First version that is no longer affected, for the installed version. Null when no fix exists. */
   fixed: string | null;
+  /** Some advisories name the last affected version instead: anything newer is clean. */
+  lastAffected: string | null;
   url: string;
 }
 

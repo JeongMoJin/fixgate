@@ -50,3 +50,24 @@ node scripts/bench.ts \
 ## 측정 중 고친 것
 
 실제 lockfile 상당수가 peer dependency 충돌이나 package.json과의 불일치 때문에 `npm sbom`에서 거부됐다. 설치되는 버전과는 무관한 문제라, `--legacy-peer-deps`를 붙이고 그래도 실패하면 lockfile을 직접 해석해 SBOM을 만들도록 바꿨다 (`lockfileToCycloneDx`, 예제 서비스에서 npm SBOM과 149개 구성요소가 일치하는지 테스트).
+
+## Java 서비스 5개 (Gradle lockfile)
+
+Java 프로젝트는 대부분 lockfile을 커밋하지 않는다. 커밋하는 공개 프로젝트 중 서비스 모듈 5개를 골랐다. Gradle lockfile은 해석된 모든 모듈과 그 모듈이 올라가는 classpath를 적으므로, `runtimeClasspath`에 없는 모듈(컴파일·테스트 전용)은 운영에 들어가지 않는 것으로 본다. 의존 관계 그래프는 없어서 직접·간접은 구분하지 않는다.
+
+| 서비스 | 구성요소 | 경보 | 즉시 | 이번 주 | 계획 | 운영 영향 없음 | 즉시·이번 주 패키지 | 안전 버전 있음 |
+|---|---|---|---|---|---|---|---|---|
+| datahub-project/datahub@1ac4f72 datahub-frontend | 636 | 12 | 0 | 3 | 1 | 8 | 2 / 2 | 2 / 2 |
+| datahub-project/datahub@1ac4f72 datahub-upgrade | 701 | 6 | 0 | 4 | 1 | 1 | 3 / 3 | 3 / 3 |
+| Netflix/maestro@5900c44 maestro-server | 255 | 34 | 0 | 7 | 7 | 20 | 3 / 8 | 3 / 3 |
+| grimmory-tools/grimmory@021cb13 backend | 205 | 18 | 0 | 14 | 4 | 0 | 5 / 5 | 5 / 5 |
+| bwaldvogel/mongo-java-server@e09dcfb (root) | 59 | 37 | 0 | 6 | 1 | 30 | 2 / 2 | 2 / 2 |
+| **합계** | **1,856** | **107** | **0** | **34** | **14** | **59** | **15 / 20** | **15 / 15** |
+
+- 이번 주 안에 볼 경보는 107건 중 34건, 패키지 15개다. 15개 모두 Maven Central에 알려진 취약점이 없는 버전이 있어 버전 고정(Gradle constraints, Maven dependencyManagement)으로 조치할 수 있다. 조치 적용과 빌드 검증은 아직 npm만 한다.
+- Netflix Maestro의 Spring Framework 6.2.19에는 CRITICAL 권고 2건이 있는데 6.2.x 공개 수정이 없고 7.0.9부터 고쳐진다. FixGate는 이를 버전 고정이 아닌 '메이저 업그레이드' 경로로 넘겨 LLM이 보완 통제와 함께 계획을 낸다 ([sample-java-report.md](sample-java-report.md)).
+- 이 측정을 하다가 네 자리 Maven 버전(1.1.10.7)과 빌드 구분자(-jre, .Final) 비교 오류, OSV의 `group:artifact` 이름 불일치를 찾아 고쳤다.
+
+```bash
+node scripts/bench.ts   gradle:datahub-project/datahub@1ac4f7289f49461bb361d1f297de4835ff47e395:datahub-frontend/gradle.lockfile   gradle:datahub-project/datahub@1ac4f7289f49461bb361d1f297de4835ff47e395:datahub-upgrade/gradle.lockfile   gradle:Netflix/maestro@5900c44f7f5923e60feffed726a116d40a1abbbb:maestro-server/gradle.lockfile   gradle:grimmory-tools/grimmory@021cb138dc7f19583142c55fd5070201c40b403b:backend/gradle.lockfile   gradle:bwaldvogel/mongo-java-server@e09dcfb7a49811fbe0543f23560eae9bb7deae95:gradle.lockfile
+```

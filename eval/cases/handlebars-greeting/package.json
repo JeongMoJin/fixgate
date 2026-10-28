@@ -1,0 +1,8 @@
+{
+  "name": "handlebars-greeting",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Eval case: member greetings rendered with handlebars 4.0",
+  "scripts": { "test": "node --test \"test/*.test.js\"" },
+  "dependencies": { "handlebars": "4.0.12" }
+}

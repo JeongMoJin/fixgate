@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Component } from "./types.ts";
 
@@ -20,6 +20,87 @@ export interface CycloneDx {
   metadata?: { component?: CdxComponent };
   components?: CdxComponent[];
   dependencies?: { ref: string; dependsOn?: string[] }[];
+}
+
+/**
+ * Finds the SBOM for a service folder: a CycloneDX or SPDX file the team
+ * already produces (bom.json, sbom.spdx.json), a Gradle lockfile for Java
+ * services, or the npm lockfile. Nothing is installed or run.
+ */
+export function loadSbom(dir: string): CycloneDx {
+  for (const name of ["bom.json", "sbom.cdx.json", "sbom.spdx.json", "bom.spdx.json"]) {
+    if (existsSync(join(dir, name))) return toCycloneDx(JSON.parse(readFileSync(join(dir, name), "utf8")));
+  }
+  if (existsSync(join(dir, "gradle.lockfile"))) return gradleLockfileToCycloneDx(readFileSync(join(dir, "gradle.lockfile"), "utf8"));
+  return generateNpmSbom(dir);
+}
+
+/** Accepts CycloneDX as is and converts SPDX 2.x JSON. */
+export function toCycloneDx(doc: Record<string, any>): CycloneDx {
+  if (doc.bomFormat === "CycloneDX") return doc as CycloneDx;
+  if (doc.spdxVersion || doc.sbom?.spdxVersion) return spdxToCycloneDx(doc.sbom ?? doc);
+  throw new Error("CycloneDX 또는 SPDX JSON만 읽을 수 있습니다");
+}
+
+interface SpdxPackage {
+  SPDXID: string;
+  name: string;
+  versionInfo?: string;
+  externalRefs?: { referenceType: string; referenceLocator: string }[];
+}
+
+/**
+ * SPDX keeps the dependency graph in relationships. Packages without a purl
+ * and a concrete version cannot be matched against advisories, so they drop out.
+ */
+export function spdxToCycloneDx(doc: { packages?: SpdxPackage[]; relationships?: { spdxElementId: string; relationshipType: string; relatedSpdxElement: string }[]; documentDescribes?: string[] }): CycloneDx {
+  const purlOf = (p: SpdxPackage) => p.externalRefs?.find((r) => r.referenceType === "purl")?.referenceLocator;
+  const usable = (p: SpdxPackage) => {
+    const purl = purlOf(p);
+    return purl && purl.includes("@") && p.versionInfo && /^\d/.test(p.versionInfo) && !/[\^~*<>|]/.test(p.versionInfo);
+  };
+  const packages = doc.packages ?? [];
+  const described = new Set(doc.documentDescribes ?? []);
+  const graph = new Map<string, string[]>();
+  for (const r of doc.relationships ?? []) {
+    if (r.relationshipType === "DESCRIBES") described.add(r.relatedSpdxElement);
+    const [from, to] = r.relationshipType === "DEPENDS_ON" ? [r.spdxElementId, r.relatedSpdxElement] : r.relationshipType === "DEPENDENCY_OF" ? [r.relatedSpdxElement, r.spdxElementId] : [];
+    if (from && to) graph.set(from, [...(graph.get(from) ?? []), to]);
+  }
+  const rootDeps = [...described].flatMap((id) => graph.get(id) ?? []);
+  return {
+    bomFormat: "CycloneDX",
+    metadata: { component: { "bom-ref": "spdx:root", name: "root" } },
+    components: packages
+      .filter((p) => !described.has(p.SPDXID) && usable(p))
+      .map((p) => ({ "bom-ref": p.SPDXID, name: p.name, version: p.versionInfo, purl: decodeURIComponent(purlOf(p)!) })),
+    dependencies: [{ ref: "spdx:root", dependsOn: rootDeps }, ...[...graph].map(([ref, dependsOn]) => ({ ref, dependsOn }))],
+  };
+}
+
+/**
+ * A Gradle lockfile lists every resolved module with the classpaths it is on.
+ * A module only on compile or test classpaths never ships, so it counts as
+ * dev-only. The lockfile has no graph, so direct and transitive are unknown.
+ */
+export function gradleLockfileToCycloneDx(text: string): CycloneDx {
+  const components: CdxComponent[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const m = /^([^#=\s:]+):([^=\s:]+):([^=\s:]+)=(.*)$/.exec(line.trim());
+    if (!m) continue;
+    const [, group, artifact, version, confs] = m;
+    const shipped = confs.split(",").some((c) => /^(production)?[rR]untimeClasspath$/.test(c.trim()));
+    components.push({
+      "bom-ref": `${group}:${artifact}@${version}`,
+      group,
+      name: artifact,
+      version,
+      purl: `pkg:maven/${group}/${artifact}@${version}`,
+      properties: shipped ? [] : [{ name: "cdx:npm:package:development", value: "true" }],
+      externalReferences: [{ type: "distribution", url: "https://repo1.maven.org/maven2" }],
+    });
+  }
+  return { bomFormat: "CycloneDX", metadata: { component: { "bom-ref": "gradle:root", name: "root" } }, components, dependencies: [] };
 }
 
 /**
@@ -152,7 +233,7 @@ export function parseCycloneDx(bom: CycloneDx): Component[] {
         ecosystem: purlType(c.purl!),
         dev: isDevOnly(c),
         direct: direct.has(ref),
-        path: paths.get(ref) ?? [ref],
+        path: paths.get(ref) ?? (children.size ? [ref] : []),
         fromRegistry: isFromRegistry(c),
       };
     });

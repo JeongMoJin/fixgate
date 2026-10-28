@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { getVuln, queryVulnIds, toAdvisory } from "./osv.ts";
 import { decide } from "./prioritize.ts";
-import { generateNpmSbom, parseCycloneDx, type CycloneDx } from "./sbom.ts";
+import { loadSbom, parseCycloneDx, type CycloneDx } from "./sbom.ts";
 import { loadEpss, loadKev } from "./threat.ts";
 import type { Component, Finding, ServiceContext } from "./types.ts";
 import { scanUsage } from "./usage.ts";
@@ -29,7 +29,7 @@ export function loadContext(dir: string): ServiceContext {
  */
 export async function triage(dir: string, opts: { sbom?: CycloneDx } = {}): Promise<Triage> {
   const context = loadContext(dir);
-  const components = parseCycloneDx(opts.sbom ?? generateNpmSbom(dir));
+  const components = parseCycloneDx(opts.sbom ?? loadSbom(dir));
   const byPurl = new Map(components.map((c) => [c.purl, c]));
 
   const ids = await queryVulnIds(components.map((c) => c.purl));

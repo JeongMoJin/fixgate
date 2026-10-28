@@ -40,6 +40,10 @@ const SCHEMA = {
   additionalProperties: false,
 };
 
+// "strict" keeps FixGate's fact-only instructions; "neutral" asks the way a developer would.
+const MODE = process.env.BASELINE_MODE ?? "neutral";
+const NEUTRAL = "You are a software security assistant. Answer from your own knowledge. Return only the JSON the schema asks for.";
+
 const llm = llmFromEnv({ ...process.env, FIXGATE_LLM_MAX_CALLS: process.env.FIXGATE_LLM_MAX_CALLS ?? "20" });
 if (!llm) throw new Error("FIXGATE_LLM=claude-code 로 실행하세요");
 
@@ -62,7 +66,7 @@ for (const dir of process.argv.slice(2)) {
       "",
       ...chunk.map((c) => `${c.name}@${c.version}`),
     ].join("\n");
-    const out = await llm.askJson<{ answers: Answer[] }>(`baseline ${dir} ${i}`, prompt, SCHEMA);
+    const out = await llm.askJson<{ answers: Answer[] }>(`baseline ${dir} ${i}`, prompt, SCHEMA, MODE === "neutral" ? NEUTRAL : undefined);
     answers.push(...(out?.answers ?? []));
   }
 
@@ -114,7 +118,7 @@ for (const dir of process.argv.slice(2)) {
 const pct = (n: number, d: number) => (d ? `${((n / d) * 100).toFixed(1)}%` : "-");
 console.log(JSON.stringify({ model: llm.model, newCalls: llm.calls(), ...totals }, null, 2));
 console.log(`
-| 질문 | LLM 단독 (${llm.model}, 도구 없음) | FixGate |
+| 질문 | LLM 단독 (${llm.model}, 도구 없음, 지시 ${MODE}) | FixGate |
 |---|---|---|
 | 취약한 패키지를 찾아냄 | ${totals.caught} / ${totals.truthVulnerable} (${pct(totals.caught, totals.truthVulnerable)}) | ${totals.truthVulnerable} / ${totals.truthVulnerable} — OSV 조회 |
 | '취약하다'고 한 것 중 실제로 취약 | ${totals.saidYesCorrect} / ${totals.saidYes} (${pct(totals.saidYesCorrect, totals.saidYes)}) | 100% — OSV에 있는 것만 보고 |

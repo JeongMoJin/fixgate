@@ -42,6 +42,10 @@ flowchart LR
 
 전체 보고서: [docs/sample-report.html](docs/sample-report.html) · [docs/sample-report.md](docs/sample-report.md)
 
+## Java 서비스 5개 측정
+
+DataHub, Netflix Maestro 등 Gradle lockfile을 커밋하는 Java 서비스 5개(구성요소 1,856개): 경보 107건 중 이번 주 안에 볼 것 34건(패키지 15개), 15개 모두 알려진 취약점이 없는 버전으로 고정할 수 있었다. Maestro의 Spring Framework 6.2.19는 CRITICAL 2건이 7.0.9에서만 고쳐져 '메이저 업그레이드' 경로로 넘겼다 ([docs/sample-java-report.md](docs/sample-java-report.md)).
+
 ## 공개 프로젝트 9개 측정
 
 jitsi-meet, insomnia, bitwarden clients, node-red 등 npm lockfile을 커밋하는 공개 프로젝트 9개(구성요소 12,553개)에 `scan`을 돌렸다 (2026-10-28, 모두 인터넷 노출로 가정).
@@ -54,23 +58,31 @@ jitsi-meet, insomnia, bitwarden clients, node-red 등 npm lockfile을 커밋하�
 
 ## LLM은 어디에 쓰나
 
-사실 판단(취약 여부, 버전, 점수)에는 쓰지 않는다. 같은 질문을 도구 없이 LLM에게만 했더니(서비스 10개, 운영 패키지 440개):
+사실 판단(취약 여부, 버전, 점수)에는 쓰지 않는다. 같은 질문을 도구 없이 LLM에게만 했더니(서비스 10개, 운영 패키지 440개) 두 모델 모두 같은 모양이었다:
 
-| | LLM 단독 | FixGate |
-|---|---|---|
-| 실제 권고 중 이름을 댄 것 | 23.4% (30/128) — 2025년 이후 권고는 10% (10/99) | OSV 그대로 |
-| 말한 권고 ID가 그 버전에 실제로 해당 | 53.4% (31/58) | OSV 그대로 |
-| 제안한 업그레이드 버전에 알려진 취약점이 없음 | 43.8% (7/16) | 후보마다 OSV 확인 |
+| | Claude Sonnet | OpenAI gpt-6.1-terra | FixGate |
+|---|---|---|---|
+| 2025년 이전 공개 권고 중 짚은 것 | 69% (20/29) | 66% (19/29) | OSV 그대로 |
+| 2025년 이후 공개 권고 중 짚은 것 | 10% (10/99) | 12% (12/99) | OSV 그대로 |
+| 제안한 업그레이드 버전에 알려진 취약점이 없음 | 44% (7/16) | 50% (2/4) | 후보마다 OSV 확인 |
 
-모델의 지식은 학습 시점에 멈춰 있고 취약점은 매일 나온다. 측정 방법은 [docs/llm-vs-tools.md](docs/llm-vs-tools.md).
+모델의 지식은 학습 시점에 멈추고 취약점은 매일 나온다. 측정 방법은 [docs/llm-vs-tools.md](docs/llm-vs-tools.md).
 
-그래서 LLM은 **관문이 실패했을 때 원인과 선택지를 설명하는 데에만** 쓴다. 근거로 줄 수 있는 사실(릴리스 노트, 코드 사용처, 실패한 테스트 파일, 로그)에 번호를 붙여 주고, 답의 근거 번호가 그 목록에 없으면 버린다.
+그래서 LLM은 열린 판단 두 가지에만 쓴다.
+
+1. **실패 원인 설명**: 업그레이드가 기존 테스트를 깨뜨리면 릴리스 노트(N), 코드 사용처(C), 사용 파일 발췌(S), 실패 테스트(T), 로그(L)에 번호를 붙여 주고 원인과 선택지를 받는다.
+2. **조치 경로 선택**: 알려진 취약점이 없는 버전이 메이저 너머에만 있거나 아예 없으면 권고(A)·레지스트리(R)·코드(C) 사실로 메이저 업그레이드·교체·보완 통제·위험 수용 중 하나를 고른다. 교체를 고르면 그 패키지를 레지스트리와 OSV에서 다시 확인한다.
+
+두 경우 모두 JSON 스키마로 답을 받고, 사실 목록에 없는 근거 번호는 버리고, 근거가 모자라면 '판단 보류'로 답할 수 있다. 정답이 알려진 6개 사례 평가에서 두 모델 모두 정답·근거 번호 유효·위험한 추천 없음이 6/6이었다 ([docs/eval.md](docs/eval.md)).
 
 ```bash
-FIXGATE_LLM=claude-code node src/cli.ts fix examples/shop-api
+FIXGATE_LLM=openai OPENAI_API_KEY=... node src/cli.ts fix examples/shop-api
+FIXGATE_LLM=claude-code node src/cli.ts scan <Java 서비스> --plan
 ```
 
-Claude Code CLI의 headless 모드(`claude -p`)로 호출해, 로그인한 Claude Code 구독으로 동작한다(API 키 불필요). 도구는 끄고(`--tools ""`), 빈 작업 폴더에서, JSON 스키마로 답을 받는다. 답은 `.fixgate-cache/llm/`에 남아 같은 질문을 다시 호출하지 않고, 한 번 실행의 호출 수는 `FIXGATE_LLM_MAX_CALLS`(기본 10)로 막는다. 모델은 `FIXGATE_LLM_MODEL`(기본 `sonnet`).
+- `openai`: Responses API + Structured Outputs. 기본 모델 `gpt-6.1-terra`, 추론 강도 `low`. 호출마다 토큰 사용량으로 비용을 계산해 `.fixgate-cache/llm/spend.json`에 쌓고, `FIXGATE_LLM_BUDGET_USD`(기본 $0.6)에 닿으면 더 부르지 않는다. 평가·비교 실험·예제 보고서 전체에 든 비용은 $0.21이었다.
+- `claude-code`: Claude Code CLI의 headless 모드(`claude -p`)로, 로그인한 구독으로 동작한다. 도구는 끄고 빈 작업 폴더에서 부른다.
+- 답은 `.fixgate-cache/llm/`에 남아 같은 질문은 다시 호출하지 않고, 한 번 실행의 호출 수는 `FIXGATE_LLM_MAX_CALLS`(기본 10)로 막는다. LLM을 끄면 결정적 단계와 보고서는 그대로 동작한다.
 
 ## 원칙
 
@@ -87,8 +99,11 @@ Node.js 24 이상. TypeScript를 빌드 없이 바로 실행한다.
 npm install
 node src/cli.ts scan examples/shop-api      # 읽기만: 처리 순서 보고서
 node src/cli.ts fix examples/shop-api       # 작업 사본에서 조치 + 관문 검증
-node src/cli.ts scan <폴더> --sbom bom.json  # 다른 도구가 만든 CycloneDX SBOM 사용
+node src/cli.ts scan <폴더> --sbom bom.json  # 다른 도구가 만든 CycloneDX·SPDX SBOM 사용
+node src/cli.ts scan <Java 서비스> --plan    # gradle.lockfile → 패키지별 버전 고정 계획
 ```
+
+입력은 서비스 폴더에서 `bom.json`·`sbom.cdx.json`(CycloneDX), `sbom.spdx.json`(SPDX, GitHub dependency graph 내보내기 포함), `gradle.lockfile`, `package-lock.json` 순서로 찾는다.
 
 결과는 `fixgate-out/<서비스>/`에 남는다: `report.html`, `report.md`, `vex.json`, `findings.json`, 조치 후 `package.json`·`package-lock.json`.
 
@@ -114,10 +129,11 @@ CISA [SSVC](https://www.cisa.gov/stakeholder-specific-vulnerability-categorizati
 
 ## 한계
 
-- 조치(fix)는 지금 npm 프로젝트만 지원한다. 매칭과 우선순위(scan)는 CycloneDX SBOM이면 생태계와 관계없이 동작한다.
+- 조치 적용과 관문 검증(fix)은 지금 npm 프로젝트만 한다. Java(Maven·Gradle)는 매칭·우선순위·버전 고정 계획(scan --plan)까지 한다. 매칭과 우선순위는 CycloneDX·SPDX SBOM이면 생태계와 관계없이 동작한다.
+- Gradle lockfile에는 의존 관계 그래프가 없어 직접·간접을 구분하지 않는다.
 - '실제 사용'은 패키지 단위 import 검색이다. 취약한 함수까지 따라가는 도달성 분석은 아니다.
 - 단계 임계값(EPSS 10%, 상위 5%)은 조직 정책에 맞게 조정해야 한다.
-- LLM 단계는 지금 Claude Code CLI로만 호출한다. 조직 환경에서는 회사가 쓰는 모델 API로 바꿔 끼우면 된다 (`src/llm.ts` 한 파일).
+- LLM 공급자는 `src/llm.ts` 한 파일에서 바꾼다 (지금 OpenAI Responses API와 Claude Code CLI).
 
 ## 데이터 출처
 

@@ -73,11 +73,13 @@ export function decide(f: Facts): { tier: Tier; reasons: Reason[] } {
     reasons.push({ text: `운영 코드에서 직접 사용${members}`, source: `${at.file}:${at.line}` });
   } else if (component.direct) {
     reasons.push({ text: "선언만 있고 운영 코드에서 import가 보이지 않음 — 삭제 검토", source: "소스 검색" });
-  } else {
+  } else if (component.path.length) {
     reasons.push({ text: `간접 의존성: ${component.path.join(" → ")}`, source: "SBOM dependencies" });
+  } else {
+    reasons.push({ text: "도입 경로 정보 없음 (lockfile에 의존 관계가 없음)", source: "SBOM" });
   }
 
-  if (!advisory.fixed && tier !== "plan") {
+  if (!advisory.fixed && !advisory.lastAffected && tier !== "plan") {
     reasons.push({ text: "고친 버전이 없어 임시 완화책이 필요함", source: osv });
   }
   return { tier, reasons };

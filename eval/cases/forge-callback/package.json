@@ -1,0 +1,8 @@
+{
+  "name": "forge-callback",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Eval case: a partner-callback check built on node-forge 0.10",
+  "scripts": { "test": "node --test \"test/*.test.js\"" },
+  "dependencies": { "node-forge": "0.10.0" }
+}

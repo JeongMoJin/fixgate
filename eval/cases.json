@@ -1,0 +1,59 @@
+[
+  {
+    "id": "jwt-rsa-key",
+    "kind": "diagnose",
+    "dir": "examples/shop-api",
+    "package": "jsonwebtoken",
+    "truth": "jsonwebtoken 9.0.0부터 RSA 키가 2048비트 이상이어야 하는데, 서비스와 테스트가 1024비트 키를 쓴다.",
+    "causePattern": "2048"
+  },
+  {
+    "id": "forge-parseurl",
+    "kind": "diagnose",
+    "dir": "eval/cases/forge-callback",
+    "package": "node-forge",
+    "truth": "node-forge 1.0.0에서 forge.util.parseUrl이 제거되어 콜백 URL 파싱이 TypeError로 실패한다.",
+    "causePattern": "parseUrl"
+  },
+  {
+    "id": "handlebars-proto",
+    "kind": "diagnose",
+    "dir": "eval/cases/handlebars-greeting",
+    "package": "handlebars",
+    "truth": "handlebars 4.6.0부터 기본값으로 프로토타입 속성(클래스 getter fullName) 접근이 막혀 이름이 빈 값으로 렌더링된다.",
+    "causePattern": "(prototype|프로토타입|own property|자체 속성|allowProto|getter|게터)"
+  },
+  {
+    "id": "xmldom-renamed",
+    "kind": "path",
+    "dir": "eval/cases/xmldom-feed",
+    "package": "xmldom",
+    "truth": "xmldom은 더 이상 고쳐지지 않고 @xmldom/xmldom으로 이름을 바꿔 이어진다. 같은 API라 교체가 정답.",
+    "paths": [
+      "replace"
+    ],
+    "replacementPattern": "^@xmldom/xmldom$"
+  },
+  {
+    "id": "request-deprecated",
+    "kind": "path",
+    "dir": "eval/cases/request-client",
+    "package": "request",
+    "truth": "request는 폐기돼 SSRF 등 취약점의 고친 버전이 나오지 않는다. API가 다른 클라이언트(fetch, undici, axios 등)로 옮기거나, 옮길 때까지 목적지 제한 같은 보완 통제를 둔다. 같은 API의 대체품은 없다.",
+    "paths": [
+      "replace",
+      "mitigate"
+    ],
+    "replacementDropIn": false
+  },
+  {
+    "id": "spring-oss-eol",
+    "kind": "path",
+    "gradle": "Netflix/maestro@5900c44f7f5923e60feffed726a116d40a1abbbb:maestro-server/gradle.lockfile",
+    "package": "org.springframework/spring-webmvc",
+    "truth": "6.2.x 안에 공개된 깨끗한 버전이 없고 7.x로만 고쳐진다. 메이저 업그레이드 계획(필요하면 그동안 보완 통제)이 정답.",
+    "paths": [
+      "upgrade_major"
+    ]
+  }
+]

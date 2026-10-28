@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { notesBetween } from "../src/changelog.ts";
-import { fixedVersion, type OsvVuln } from "../src/osv.ts";
+import { compareVersions, fixedVersion, type OsvVuln } from "../src/osv.ts";
+import { citedIds } from "../src/diagnose.ts";
 import { rankTargets, retryOrder, type FixAction } from "../src/remediate.ts";
-import { lockfileToCycloneDx, parseCycloneDx } from "../src/sbom.ts";
+import { gradleLockfileToCycloneDx, lockfileToCycloneDx, parseCycloneDx, spdxToCycloneDx } from "../src/sbom.ts";
 import { importsOn, scanUsage } from "../src/usage.ts";
 import { applyVersion } from "../src/verify.ts";
 
@@ -67,6 +68,46 @@ test("fixedVersion finds the fix for the range that contains the version", () =>
   assert.equal(fixedVersion(vuln, "x", "2.1.0"), "2.3.1");
   const noFix: OsvVuln = { id: "GHSA-2", affected: [{ package: { name: "x", ecosystem: "npm" }, ranges: [{ type: "SEMVER", events: [{ introduced: "0" }, { last_affected: "3.0.0" }] }] }] };
   assert.equal(fixedVersion(noFix, "x", "2.0.0"), null);
+});
+
+test("Maven versions compare over every numeric part and match OSV's group:artifact names", () => {
+  assert.equal(compareVersions("1.1.10.7", "1.1.10.9"), -1);
+  assert.equal(compareVersions("2.21", "2.21.5"), -1);
+  assert.equal(compareVersions("4.2.17.Final", "4.2.9.Final"), 1);
+  assert.equal(compareVersions("33.7.2-jre", "33.7.2"), 0);
+  assert.equal(compareVersions("33.7.2-jre", "33.6.0-jre"), 1);
+  assert.equal(compareVersions("1.0.0-beta.1", "1.0.0"), -1);
+  const vuln: OsvVuln = { id: "GHSA-m", affected: [{ package: { name: "org.xerial.snappy:snappy-java", ecosystem: "Maven" }, ranges: [{ type: "ECOSYSTEM", events: [{ introduced: "0" }, { fixed: "1.1.10.9" }] }] }] };
+  assert.equal(fixedVersion(vuln, "org.xerial.snappy/snappy-java", "1.1.10.7"), "1.1.10.9");
+  assert.equal(fixedVersion(vuln, "org.xerial.snappy/snappy-java", "1.1.10.12"), null);
+});
+
+test("Gradle lockfiles: only runtime classpaths ship", () => {
+  const components = parseCycloneDx(gradleLockfileToCycloneDx(["# comment", "a.b:core:1.2.3=compileClasspath,runtimeClasspath", "a.b:anno:7.1.0=compileClasspath", "a.b:junit:5.0=testRuntimeClasspath"].join("\n")));
+  const by = Object.fromEntries(components.map((c) => [c.name, c]));
+  assert.equal(by["a.b/core"].dev, false);
+  assert.equal(by["a.b/anno"].dev, true);
+  assert.equal(by["a.b/junit"].dev, true);
+  assert.equal(by["a.b/core"].purl, "pkg:maven/a.b/core@1.2.3");
+});
+
+test("SPDX packages with a purl and a concrete version become components", () => {
+  const components = parseCycloneDx(
+    spdxToCycloneDx({
+      documentDescribes: ["SPDXRef-root"],
+      packages: [
+        { SPDXID: "SPDXRef-root", name: "app" },
+        { SPDXID: "SPDXRef-a", name: "a", versionInfo: "1.0.0", externalRefs: [{ referenceType: "purl", referenceLocator: "pkg:npm/a@1.0.0" }] },
+        { SPDXID: "SPDXRef-b", name: "b", versionInfo: "^2.0.0", externalRefs: [{ referenceType: "purl", referenceLocator: "pkg:npm/b@%5E2.0.0" }] },
+      ],
+      relationships: [{ spdxElementId: "SPDXRef-root", relationshipType: "DEPENDS_ON", relatedSpdxElement: "SPDXRef-a" }],
+    }),
+  );
+  assert.deepEqual(components.map((c) => [c.name, c.direct]), [["a", true]]);
+});
+
+test("citedIds pulls fact ids out of evidence sentences", () => {
+  assert.deepEqual(citedIds(["[A1] 설명", "R2 이유", "근거 없는 문장", "[C1][S3] 둘"]), ["A1", "R2", "C1", "S3"]);
 });
 
 test("rankTargets prefers the smallest clean release inside the caret range", () => {

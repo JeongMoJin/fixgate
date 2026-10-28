@@ -1,0 +1,72 @@
+{
+  "model": "openai:gpt-6.1-terra",
+  "at": "2026-10-28T04:33:20.242Z",
+  "results": [
+    {
+      "id": "jwt-rsa-key",
+      "kind": "diagnose",
+      "correct": true,
+      "evidenceValid": true,
+      "safe": true,
+      "answer": "테스트는 1024비트 RSA 키로 RS256 토큰을 발급하지만, 9.0.0은 RSA 키를 2048비트 이상으로 요구한다. [T8] [T9] [C2] [N6] 이 변경으로 로그인 테스트에서 예상한 200 대신 500이 발생한 것으로 보인다. [T35] [T36] [L7] [L9] → 추천: RSA 키 교체 후 업그레이드 (low)",
+      "cited": 8,
+      "rejected": 0,
+      "note": "8.5.1 → 9.0.0"
+    },
+    {
+      "id": "forge-parseurl",
+      "kind": "diagnose",
+      "correct": true,
+      "evidenceValid": true,
+      "safe": true,
+      "answer": "업데이트 후 callbackTarget이 호출하는 forge.util.parseUrl이 함수가 아니어서 테스트가 실패했다. [C1] [C2] [L14] [L15] → 추천: URL 분리 방식 변경 후 업데이트 (medium)",
+      "cited": 6,
+      "rejected": 0,
+      "note": "0.10.0 → 1.4.1"
+    },
+    {
+      "id": "handlebars-proto",
+      "kind": "diagnose",
+      "correct": true,
+      "evidenceValid": true,
+      "safe": true,
+      "answer": "템플릿이 프로토타입의 fullName getter를 읽는데, 업그레이드 후 기본적으로 프로토타입 속성 접근이 차단되어 이름이 출력되지 않았다. [S7] [S11] [S13] [S15] [N21] [L7] [L8] → 추천: 일반 데이터로 전달 (low)",
+      "cited": 7,
+      "rejected": 0,
+      "note": "4.0.12 → 4.7.10"
+    },
+    {
+      "id": "xmldom-renamed",
+      "kind": "path",
+      "correct": true,
+      "evidenceValid": true,
+      "safe": true,
+      "answer": "replace → @xmldom/xmldom (레지스트리 있음, 최신 0.9.12, 알려진 취약점 없음) | @xmldom/xmldom으로 교체를 검토하고 취약점 현황을 확인한다. [A4d, R2]",
+      "cited": 4,
+      "rejected": 0,
+      "note": "0.6.0 → 깨끗한 버전 없음"
+    },
+    {
+      "id": "request-deprecated",
+      "kind": "path",
+      "correct": true,
+      "evidenceValid": true,
+      "safe": true,
+      "answer": "mitigate | 요청 대상과 리디렉션을 공격자가 제어할 수 있는지 확인한다. [A1d][C2]",
+      "cited": 6,
+      "rejected": 0,
+      "note": "2.88.2 → 깨끗한 버전 없음"
+    },
+    {
+      "id": "spring-oss-eol",
+      "kind": "path",
+      "correct": true,
+      "evidenceValid": true,
+      "safe": true,
+      "answer": "upgrade_major | spring-webmvc를 7.0.9로 업그레이드한다. [R2]",
+      "cited": 3,
+      "rejected": 0,
+      "note": "6.2.19 → 7.0.9"
+    }
+  ]
+}

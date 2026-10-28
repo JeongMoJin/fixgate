@@ -1,4 +1,6 @@
 import type { Diagnosis } from "./diagnose.ts";
+import type { PathChoice } from "./path.ts";
+import type { FixAction } from "./remediate.ts";
 import type { Triage } from "./triage.ts";
 import type { Finding, Tier } from "./types.ts";
 import { TIER_LABEL, TIER_ORDER } from "./types.ts";
@@ -10,11 +12,45 @@ export interface RunResult {
   attempts: Attempt[];
   /** LLM explanations of failed test gates, by package name. */
   diagnoses: Record<string, Diagnosis>;
+  /** scan --plan: the release each package should move to, without applying it. */
+  plans: FixAction[];
+  /** LLM path choices for packages with no clean release in reach, by package name. */
+  paths: Record<string, PathChoice>;
   generatedAt: string;
   diff: string;
 }
 
 const RISK: Record<string, string> = { low: "위험 낮음", medium: "위험 보통", high: "위험 높음" };
+
+const PATH_LABEL: Record<string, string> = { upgrade_major: "메이저 업그레이드", replace: "다른 패키지로 교체", mitigate: "보완 통제", accept_risk: "위험 수용" };
+const KIND_LABEL: Record<string, string> = { direct: "직접 의존성 변경", override: "간접 의존성 override", pin: "빌드 도구 버전 고정" };
+
+function replacementText(p: PathChoice): string {
+  if (!p.replacement_name) return "";
+  const c = p.replacementCheck;
+  const check = c ? (c.exists ? `레지스트리 확인: 최신 ${c.latest}, ${c.clean ? "알려진 취약점 없음" : "취약점 있음"}` : "레지스트리에 없음") : "";
+  return `${p.replacement_name}${p.replacement_drop_in ? " (같은 API)" : " (코드 수정 필요)"}${check ? ` — ${check}` : ""}`;
+}
+
+function pathLines(p: PathChoice): string[] {
+  return [
+    "",
+    `  **조치 경로 (LLM ${p.model}, 확신 ${p.confidence}${p.insufficient_evidence ? ", 근거 부족으로 판단 보류" : ""})**: ${PATH_LABEL[p.path]}${p.replacement_name ? ` → ${replacementText(p)}` : ""}`,
+    ...p.steps.map((x, i) => `  ${i + 1}. ${x}`),
+    ...(p.mitigations.length ? ["  보완 통제:", ...p.mitigations.map((x) => `  - ${x}`)] : []),
+    `  남는 위험: ${p.risk_note}`,
+    ...p.evidence.map((id) => `  - 근거 [${id}] ${p.facts[id]}`),
+    ...(p.rejected.length ? [`  - 사실 목록에 없는 근거 ${p.rejected.length}개는 버림`] : []),
+  ];
+}
+
+function pathHtml(p: PathChoice): string {
+  return `<div class="diag"><p><b>조치 경로: ${esc(PATH_LABEL[p.path])}</b>${p.replacement_name ? ` → ${esc(replacementText(p))}` : ""} <small>LLM ${esc(p.model)} · 확신 ${esc(p.confidence)}${p.insufficient_evidence ? " · 근거 부족으로 판단 보류" : ""}</small></p><ol>${p.steps
+    .map((x) => `<li>${esc(x)}</li>`)
+    .join("")}</ol>${p.mitigations.length ? `<p><b>보완 통제</b></p><ul>${p.mitigations.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}<p><small>남는 위험: ${esc(p.risk_note)}</small></p><ul>${p.evidence
+    .map((id) => `<li><code>${esc(id)}</code> ${esc(p.facts[id])}</li>`)
+    .join("")}</ul></div>`;
+}
 
 function diagnosisLines(d: Diagnosis): string[] {
   return [
@@ -75,7 +111,7 @@ function summaryLines(run: RunResult): string[] {
   const vulnerable = new Set(before.findings.map((f) => f.component.ref)).size;
   const lines = [
     `구성요소 ${before.components.length}개 중 ${vulnerable}개에서 경보 ${before.findings.length}건`,
-    `즉시 ${b.now} · 이번 주 ${b.week} · 계획 ${b.plan} · 영향 없음 ${b.none}`,
+    `즉시 ${b.now} · 이번 주 ${b.week} · 계획 ${b.plan} · 운영 영향 없음 ${b.none}`,
     `처리 단위로 묶으면 패키지 ${packageRows(before.findings.filter((f) => f.tier !== "none")).length}개`,
   ];
   if (after) {
@@ -112,6 +148,12 @@ export function renderMarkdown(run: RunResult): string {
     }),
   ];
 
+  if (run.plans.length) {
+    out.push("", "## 조치 계획", "", "| 단계 | 패키지 | 현재 → 목표 | 방식 | 메모 |", "|---|---|---|---|---|");
+    for (const a of run.plans) out.push(`| ${TIER_LABEL[a.tier]} | ${a.name} | ${a.current} → ${a.target ?? "없음"} | ${KIND_LABEL[a.kind]} | ${a.note} |`);
+    for (const a of run.plans.filter((x) => run.paths[x.name])) out.push("", `### ${a.name} ${a.current}`, ...pathLines(run.paths[a.name]));
+  }
+
   if (attempts.length) {
     out.push("", "## 검증된 조치", "");
     for (const at of attempts) {
@@ -125,6 +167,8 @@ export function renderMarkdown(run: RunResult): string {
       }
       const d = run.diagnoses[a.name];
       if (d) out.push(...diagnosisLines(d));
+      const pc = run.paths[a.name];
+      if (pc) out.push(...pathLines(pc));
       if (!at.passed) out.push("", "→ 사람 검토 필요. 위 기록과 함께 담당 개발팀에 넘깁니다.");
       out.push("");
     }
@@ -139,7 +183,7 @@ export function renderMarkdown(run: RunResult): string {
     for (const f of list) {
       const a = f.advisory;
       out.push(
-        `- **${f.component.name}@${f.component.version}** · [${a.id}](${a.url})${a.cve ? ` ${a.cve}` : ""} · ${a.severity} · 고친 버전 ${a.fixed ?? "없음"} — ${a.summary}`,
+        `- **${f.component.name}@${f.component.version}** · [${a.id}](${a.url})${a.cve ? ` ${a.cve}` : ""} · ${a.severity} · 고친 버전 ${a.fixed ?? (a.lastAffected ? `${a.lastAffected} 이후` : "없음")} — ${a.summary}`,
         ...f.reasons.map((r) => `  - ${r.text} [${r.source}]`),
       );
     }
@@ -177,7 +221,8 @@ export function renderHtml(run: RunResult): string {
         .join("");
       const note = at.passed && a.outsideCaret ? "호환 범위(^) 밖 버전 — 기존 테스트로 동작 확인됨" : a.note;
       const d = run.diagnoses[a.name];
-      return `<div class="fix ${at.passed ? "ok" : "bad"}"><h3>${at.passed ? "검증 통과" : "사람 검토 필요"} · ${esc(a.name)} ${esc(a.current)} → ${esc(at.version ?? a.target ?? "고친 버전 없음")}</h3><p>${a.kind === "direct" ? "직접 의존성" : "간접 의존성 override"} · 대상 경보 ${a.resolves.length}건 · ${esc(note)}</p>${d ? diagnosisHtml(d) : ""}<ul>${tries || `<li>${esc(a.note)}</li>`}</ul></div>`;
+      const pc = run.paths[a.name];
+      return `<div class="fix ${at.passed ? "ok" : "bad"}"><h3>${at.passed ? "검증 통과" : "사람 검토 필요"} · ${esc(a.name)} ${esc(a.current)} → ${esc(at.version ?? a.target ?? "고친 버전 없음")}</h3><p>${a.kind === "direct" ? "직접 의존성" : "간접 의존성 override"} · 대상 경보 ${a.resolves.length}건 · ${esc(note)}</p>${d ? diagnosisHtml(d) : ""}${pc ? pathHtml(pc) : ""}<ul>${tries || `<li>${esc(a.note)}</li>`}</ul></div>`;
     })
     .join("");
 
@@ -187,7 +232,7 @@ export function renderHtml(run: RunResult): string {
     const rows = list
       .map((f) => {
         const a = f.advisory;
-        return `<tr><td>${esc(f.component.name)}@${esc(f.component.version)}</td><td><a href="${a.url}">${esc(a.id)}</a><br><small>${esc(a.cve ?? "")}</small></td><td>${a.severity}</td><td>${f.epss ? (f.epss.score * 100).toFixed(2) + "%" : "-"}</td><td>${f.kev ? "KEV" : "-"}</td><td>${esc(a.fixed ?? "없음")}</td><td>${esc(a.summary)}</td></tr>`;
+        return `<tr><td>${esc(f.component.name)}@${esc(f.component.version)}</td><td><a href="${a.url}">${esc(a.id)}</a><br><small>${esc(a.cve ?? "")}</small></td><td>${a.severity}</td><td>${f.epss ? (f.epss.score * 100).toFixed(2) + "%" : "-"}</td><td>${f.kev ? "KEV" : "-"}</td><td>${esc(a.fixed ?? (a.lastAffected ? `${a.lastAffected} 이후` : "없음"))}</td><td>${esc(a.summary)}</td></tr>`;
       })
       .join("");
     return `<details${tier === "now" ? " open" : ""}><summary><span class="chip ${tier}">${TIER_LABEL[tier]}</span> ${list.length}건</summary><table><tr><th>구성요소</th><th>권고</th><th>심각도</th><th>EPSS</th><th>KEV</th><th>고친 버전</th><th>내용</th></tr>${rows}</table></details>`;
@@ -215,6 +260,9 @@ pre{background:#f4f4f4;padding:10px;overflow:auto;font-size:12px;max-height:240p
 <div class="tiles">${TIER_ORDER.map(tile).join("")}</div>
 <ul class="sum">${summaryLines(run).map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
 <h2>처리 순서</h2><table><tr><th>단계</th><th>패키지</th><th>경보</th><th>근거 [출처]</th></tr>${order}</table>
+${run.plans.length ? `<h2>조치 계획</h2><table><tr><th>단계</th><th>패키지</th><th>현재 → 목표</th><th>방식</th><th>메모</th></tr>${run.plans
+    .map((a) => `<tr><td><span class="chip ${a.tier}">${TIER_LABEL[a.tier]}</span></td><td><b>${esc(a.name)}</b></td><td>${esc(a.current)} → ${esc(a.target ?? "없음")}</td><td>${esc(KIND_LABEL[a.kind])}</td><td>${esc(a.note)}${run.paths[a.name] ? pathHtml(run.paths[a.name]) : ""}</td></tr>`)
+    .join("")}</table>` : ""}
 ${fixes ? `<h2>검증된 조치</h2>${fixes}${run.diff ? `<h3>package.json 변경</h3><pre>${esc(run.diff)}</pre>` : ""}` : ""}
 <h2>경보 상세</h2>${detail}
 </main></body></html>

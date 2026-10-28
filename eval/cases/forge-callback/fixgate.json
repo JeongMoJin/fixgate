@@ -1,0 +1,1 @@
+{ "service": "forge-callback", "exposure": "internet", "criticality": "high", "personalData": false }

@@ -1,0 +1,1 @@
+{ "service": "xmldom-feed", "exposure": "internet", "criticality": "high", "personalData": false }

@@ -48,15 +48,40 @@ const SCHEMA = {
 };
 
 /**
+ * Models often cite as "[A1] 설명…" or "A1". Ids are pulled out of each entry;
+ * an entry with no id is commentary and is neither kept nor rejected.
+ */
+export function citedIds(evidence: string[]): string[] {
+  const ids = evidence.flatMap((e) => {
+    const bracketed = [...e.matchAll(/\[([A-Z]\d+[a-z]?)\]/g)].map((m) => m[1]);
+    if (bracketed.length) return bracketed;
+    const bare = /^\s*([A-Z]\d+[a-z]?)\b/.exec(e);
+    return bare ? [bare[1]] : [];
+  });
+  return [...new Set(ids)];
+}
+
+/**
  * Collects the facts a person would read to understand a failed upgrade and
  * gives each line an id: release notes (N), production code that calls the
- * package (C), the failing test file (T), and the test log (L).
+ * package (C), the files that import it (S), the failing test file (T), and
+ * the test log (L).
  */
 export function gatherFacts(dir: string, attempt: Attempt, usage: Usage): Record<string, string> {
   const failed = attempt.tries.find((t) => t.gates.some((g) => g.name === "test" && !g.ok));
   const facts: Record<string, string> = {};
   failed?.notes?.lines.forEach((line, i) => (facts[`N${i + 1}`] = `${failed.notes!.file}: ${line}`));
   [...usage.imports, ...usage.calls].slice(0, 12).forEach((e, i) => (facts[`C${i + 1}`] = `${e.file}:${e.line} ${e.text}`));
+  // The lines around the call often decide the cause (what object is passed in), so the
+  // files that import the package go along too, capped at 40 lines each and two files.
+  let s = 0;
+  for (const file of [...new Set(usage.imports.map((e) => e.file))].slice(0, 2)) {
+    if (!existsSync(join(dir, file))) continue;
+    readFileSync(join(dir, file), "utf8")
+      .split(/\r?\n/)
+      .slice(0, 40)
+      .forEach((text, i) => text.trim() && (facts[`S${++s}`] = `${file}:${i + 1} ${text.trim()}`));
+  }
 
   const testFile = failed ? /test[\\/][\w.\-\\/]+\.(c|m)?(j|t)sx?/.exec(failed.log)?.[0]?.replaceAll("\\", "/") : undefined;
   if (testFile && existsSync(join(dir, testFile))) {
@@ -93,7 +118,7 @@ export async function diagnose(
 
   const out = await llm.askJson<Omit<Diagnosis, "rejected" | "facts" | "model">>(`diagnose ${a.name}@${tried}`, prompt, SCHEMA);
   if (!out) return null;
-  const ids = out.evidence.map((e) => e.replace(/[[\]]/g, "").trim());
+  const ids = citedIds(out.evidence);
   return {
     ...out,
     evidence: ids.filter((id) => id in facts),

@@ -1,7 +1,7 @@
 import semver from "semver";
 import { fetchJson, fetchText } from "./http.ts";
 
-const NAMES = ["CHANGELOG.md", "History.md", "HISTORY.md", "CHANGES.md"];
+const NAMES = ["CHANGELOG.md", "History.md", "HISTORY.md", "CHANGES.md", "release-notes.md", "RELEASE_NOTES.md"];
 const BREAKING = /breaking|no longer|removed|drop(ped)?\b|must|require[sd]?\b|deprecat|default/i;
 
 /**

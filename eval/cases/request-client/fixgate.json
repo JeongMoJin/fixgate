@@ -1,0 +1,1 @@
+{ "service": "request-client", "exposure": "internet", "criticality": "high", "personalData": false }

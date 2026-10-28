@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { releaseNotes } from "./changelog.ts";
@@ -46,6 +46,11 @@ export function makeWorkCopy(dir: string, service: string): string {
 function run(command: string, cwd: string): { ok: boolean; out: string } {
   const r = spawnSync(command, { cwd, shell: true, encoding: "utf8", timeout: 10 * 60 * 1000, maxBuffer: 64 * 1024 * 1024 });
   return { ok: r.status === 0, out: `${r.stdout ?? ""}${r.stderr ?? ""}` };
+}
+
+/** Installs dependencies in a work copy that was made without node_modules. */
+export function installDeps(dir: string): boolean {
+  return existsSync(join(dir, "node_modules")) || run(INSTALL, dir).ok;
 }
 
 export function runTests(dir: string): { ok: boolean; out: string; missing: boolean } {

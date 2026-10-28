@@ -1,12 +1,12 @@
 # FixGate 보고서 · shop-api
 
-생성 2026-10-28 03:58 · 데이터: OSV(api.osv.dev), EPSS 2026-10-27, CISA KEV 2026.10.27
+생성 2026-10-28 04:43 · 데이터: OSV(api.osv.dev), EPSS 2026-10-27, CISA KEV 2026.10.27
 서비스: 노출 인터넷 · 중요도 high · 개인정보 처리 · 담당 커머스 개발팀
 
 ## 요약
 
 - 구성요소 149개 중 15개에서 경보 67건
-- 즉시 4 · 이번 주 16 · 계획 28 · 영향 없음 19
+- 즉시 4 · 이번 주 16 · 계획 28 · 운영 영향 없음 19
 - 처리 단위로 묶으면 패키지 10개
 - 검증 관문을 통과한 조치 3건 적용 → 경보 67건 → 22건, 즉시·이번 주 20건 → 1건
 - 사람 검토로 넘긴 조치 1건
@@ -67,10 +67,10 @@
 ```
     at next (<작업 사본>\node_modules\express\lib\router\index.js:275:10)
     at <작업 사본>\node_modules\body-parser\lib\read.js:130:5
-✖ login issues a token that /me accepts (27.3175ms)
-✔ me rejects a forged token (2.9427ms)
-✔ stock is read from the inventory service (6.1631ms)
-✔ receipt renders order totals (2.2782ms)
+✖ login issues a token that /me accepts (29.0361ms)
+✔ me rejects a forged token (2.8108ms)
+✔ stock is read from the inventory service (6.0462ms)
+✔ receipt renders order totals (2.6133ms)
 ℹ tests 4
 ℹ suites 0
 ℹ pass 3
@@ -78,10 +78,10 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 227.7754
+ℹ duration_ms 227.2795
 ✖ failing tests:
 test at test\app.test.js:35:1
-✖ login issues a token that /me accepts (27.3175ms)
+✖ login issues a token that /me accepts (29.0361ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   500 !== 200
       at TestContext.<anonymous> (<작업 사본>\test\app.test.js:41:10)
@@ -97,17 +97,19 @@ test at test\app.test.js:35:1
   }
 ```
 
-  **원인 설명 (LLM sonnet, 확신 medium)**: 테스트가 1024비트 RSA 키를 쓰는데[T9], 9.0.0은 RSA 키가 2048비트 이상이어야 한다[N6]. 그래서 RS256 서명 단계[C2]가 거부되어 /login이 500을 낸 것으로 보인다[L9]. 다만 로그에 예외 메시지가 없어서 직접 확인한 것은 아니고, 추정이다. 테스트 주석에 따르면 운영 키도 1024비트라서[T7] 운영에서도 같은 문제가 생길 수 있다.
+  **원인 설명 (LLM openai:gpt-6.1-terra, 확신 medium)**: 실패 원인은 1024비트 RSA 키가 9.0.0의 최소 2048비트 요구사항에 맞지 않는 것으로 보인다. 테스트는 이 키로 RS256 토큰을 발급하며, 로그인 요청에서 500 응답을 받았지만 로그에 내부 예외는 없다. [N6] [T8] [T9] [C2] [T35] [T36] [L9]
 
   - 근거 [N6] github.com/auth0/node-jsonwebtoken/CHANGELOG.md: - RSA key size must be 2048 bits or greater. ([ecdf6cc6073ea13a7e71df5fad043550f08d0fa6]https://github.com/auth0/node-jsonwebtoken/commit/ecdf6cc6073ea13a7e71df5fad043550f08d0fa6)
-  - 근거 [T7] test/app.test.js:7 // The production key pair is 1024-bit RSA, issued before the 2048-bit policy.
+  - 근거 [T8] test/app.test.js:8 const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", {
   - 근거 [T9] test/app.test.js:9 modulusLength: 1024,
   - 근거 [C2] src/app.js:14 const token = jwt.sign({ sub: userId }, privateKey, { algorithm: "RS256", expiresIn: "1h" });
+  - 근거 [T35] test/app.test.js:35 test("login issues a token that /me accepts", async () => {
+  - 근거 [T36] test/app.test.js:36 const login = await fetch(`${base}/login`, {
   - 근거 [L9]   500 !== 200
 
-  1. **추천** 2048비트 이상 RSA 키를 새로 발급해 9.0.0 적용 (위험 보통) — 운영과 테스트 키를 2048비트 이상으로 교체한 뒤 9.0.0을 다시 올린다. 취약점 3건 조치를 유지할 수 있다. 키를 바꾸면 기존에 발급된 토큰은 검증되지 않을 수 있으니 전환 계획(새 키 배포 시점, 재로그인 안내)이 필요하다. 이 점은 주어진 사실만으로는 영향 범위를 알 수 없다.
-  2. 테스트 키만 2048비트로 바꾸고 운영 키 교체 일정은 따로 잡기 (위험 보통) — 테스트는 통과시킬 수 있다. 하지만 운영 키가 1024비트인 채로 9.0.0을 배포하면 로그인이 실패할 수 있다[T7]. 운영 키 교체가 끝난 뒤에만 배포해야 한다.
-  3. 8.5.1 유지(업그레이드 보류) (위험 높음) — 테스트는 그대로 통과하지만 취약점 3건이 남는다. shop-api는 인터넷에 노출되고 개인정보를 처리하므로 위험이 크다. 임시로만 쓰고 기한을 정해야 한다.
+  1. **추천** RSA 키 교체 후 업그레이드 (위험 낮음) — 운영 키와 테스트 키를 2048비트 이상으로 교체하고 9.0.0에서 테스트한다. 기존 토큰의 전환 방식과 취약점 3건의 해결 여부도 확인한다. [T7] [T9] [N6]
+  2. 내부 예외를 확인한 뒤 수정 (위험 보통) — 로그인 요청의 내부 예외를 확인해 키 크기가 실제 실패 원인인지 검증한 뒤 수정한다. 현재 로그에는 응답 상태만 있다. [L8] [L9]
+  3. 업그레이드를 미루고 기존 버전 유지 (위험 높음) — 현재 되돌린 상태를 유지한다. 보안 조치가 미뤄지므로 위험하다.
 
 → 사람 검토 필요. 위 기록과 함께 담당 개발팀에 넘깁니다.
 

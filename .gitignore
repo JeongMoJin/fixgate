@@ -2,3 +2,8 @@ node_modules/
 .fixgate-cache/
 fixgate-out/
 .env
+
+# secrets
+openai_api.txt
+*.key
+.env*
